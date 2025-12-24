@@ -35,8 +35,8 @@ services:
       # Test marker
       CRS_ENABLE_TEST_MARKER: 1
     volumes:
-      # Custom XSS rules (loaded after standard CRS rules)
-      - ./rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-XSS-GENERALIZED.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-XSS-GENERALIZED.conf:ro
+      # Original XSS rules for comparison testing
+      - ./rules/REQUEST-941-ORIGINAL-XSS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-XSS.conf:ro
       # Logs
       - ./logs:/var/log/nginx:rw
     ports:
