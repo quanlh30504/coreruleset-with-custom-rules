@@ -1,0 +1,70 @@
+# NoSQL Injection Rule Test Environment
+services:
+  waf:
+    container_name: waf-nosqli-test
+    image: owasp/modsecurity-crs:nginx@sha256:6dd9a8a24682b6910c423451dc93050fd38c810bf367a9b2dfc71f364aa7aa74
+    user: root
+    environment:
+      BACKEND: http://backend:80
+      PORT: "8080"
+      SERVERNAME: waf-nosqli-test
+      MODSEC_RULE_ENGINE: "On"
+      MODSEC_RESP_BODY_ACCESS: "On"
+      MODSEC_RESP_BODY_MIMETYPE: "text/plain text/html text/xml application/json"
+      MODSEC_TMP_DIR: "/tmp"
+      BLOCKING_PARANOIA: 4
+      DETECTION_PARANOIA: 4
+      ACCESSLOG: "/var/log/nginx/access.log"
+      ERRORLOG: "/var/log/nginx/error.log"
+      MODSEC_AUDIT_LOG: "/var/log/nginx/modsec_audit.log"
+      MODSEC_AUDIT_LOG_FORMAT: Native
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      LOGLEVEL: "info"
+      CRS_ENABLE_TEST_MARKER: 1
+    volumes:
+      # Mount NoSQL rules from local rules/ directory
+      # Uncomment to test with ORIGINAL rules:
+      # - ./rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-NOSQL-INJECTION-ORIGINAL.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-NOSQL-INJECTION.conf:ro
+      # Testing with NEW (GENERALIZED) NoSQLi rules:
+      - ./rules/REQUEST-944-APPLICATION-CUSTOM-ATTACK-NOSQL-GENERALIZED.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-944-APPLICATION-CUSTOM-ATTACK-NOSQL-GENERALIZED.conf:ro
+      - ./logs:/var/log/nginx:rw
+    ports:
+      - "8083:8080"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - waf-nosqli-network
+
+  backend:
+    container_name: backend-nosqli-test
+    image: ghcr.io/coreruleset/albedo:0.2.0@sha256:bc9b7e4f83a5268ccd2b4d1d26e926b6324e20ff1d91281c339ad8 2e55f5bab2
+    command: ["--port", "80"]
+    networks:
+      - waf-nosqli-network
+
+  gotestwaf:
+    container_name: gotestwaf-nosqli-test
+    image: wallarm/gotestwaf:latest
+    command:
+      - --url=http://waf:8080
+      - --workers=5
+      - --noEmailReport
+      - --reportFormat=html
+      - --reportPath=/reports
+      - --reportName=nosqli-rule-test-report
+    volumes:
+      - ./reports:/reports:rw
+    depends_on:
+      waf:
+        condition: service_healthy
+    networks:
+      - waf-nosqli-network
+
+networks:
+  waf-nosqli-network:
+    driver: bridge
