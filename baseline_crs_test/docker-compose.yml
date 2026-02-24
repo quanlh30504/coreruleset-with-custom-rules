@@ -1,0 +1,68 @@
+# Baseline CRS Test - GoTestWAF against ORIGINAL ModSecurity CRS rules only
+# NO custom rules mounted - pure CRS baseline
+
+services:
+  waf:
+    container_name: waf-baseline-test
+    image: owasp/modsecurity-crs:nginx@sha256:6dd9a8a24682b6910c423451dc93050fd38c810bf367a9b2dfc71f364aa7aa74
+    user: root
+    environment:
+      BACKEND: http://backend:80
+      PORT: "8080"
+      SERVERNAME: waf-baseline-test
+      MODSEC_RULE_ENGINE: "On"
+      MODSEC_RESP_BODY_ACCESS: "On"
+      MODSEC_RESP_BODY_MIMETYPE: "text/plain text/html text/xml application/json"
+      MODSEC_TMP_DIR: "/tmp"
+      BLOCKING_PARANOIA: 4
+      DETECTION_PARANOIA: 4
+      ACCESSLOG: "/var/log/nginx/access.log"
+      ERRORLOG: "/var/log/nginx/error.log"
+      MODSEC_AUDIT_LOG: "/var/log/nginx/modsec_audit.log"
+      MODSEC_AUDIT_LOG_FORMAT: Native
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      LOGLEVEL: "info"
+      CRS_ENABLE_TEST_MARKER: 1
+    # NO custom rule volumes - pure CRS baseline
+    volumes:
+      - ./logs:/var/log/nginx:rw
+    ports:
+      - "8082:8080"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - waf-baseline-network
+
+  backend:
+    container_name: backend-baseline-test
+    image: ghcr.io/coreruleset/albedo:0.2.0@sha256:bc9b7e4f83a5268ccd2b4d1d26e926b6324e20ff1d91281c339ad82e55f5bab2
+    command: ["--port", "80"]
+    networks:
+      - waf-baseline-network
+
+  gotestwaf:
+    container_name: gotestwaf-baseline-test
+    image: wallarm/gotestwaf:latest
+    command:
+      - --url=http://waf:8080
+      - --workers=5
+      - --noEmailReport
+      - --reportFormat=html
+      - --reportPath=/reports
+      - --reportName=baseline-crs-report
+    volumes:
+      - ./reports:/reports:rw
+    depends_on:
+      waf:
+        condition: service_healthy
+    networks:
+      - waf-baseline-network
+
+networks:
+  waf-baseline-network:
+    driver: bridge
