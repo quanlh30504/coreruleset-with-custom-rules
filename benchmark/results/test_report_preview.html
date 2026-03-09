@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAF Benchmark Report — Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        /* ===== RESET & BASE ===== */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --bg-card-hover: #273549;
+            --border: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-green: #22c55e;
+            --accent-green-dim: rgba(34, 197, 94, 0.15);
+            --accent-red: #ef4444;
+            --accent-red-dim: rgba(239, 68, 68, 0.15);
+            --accent-blue: #3b82f6;
+            --accent-blue-dim: rgba(59, 130, 246, 0.15);
+            --accent-amber: #f59e0b;
+            --accent-amber-dim: rgba(245, 158, 11, 0.15);
+            --accent-purple: #a855f7;
+            --radius: 12px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .header-title {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+
+        .header-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .meta-item .label {
+            color: var(--text-muted);
+        }
+
+        .meta-item .value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ===== STAT GRID ===== */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .stat-box:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-blue);
+        }
+
+        .stat-box .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .stat-box .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-box.green .stat-value {
+            color: var(--accent-green);
+        }
+
+        .stat-box.red .stat-value {
+            color: var(--accent-red);
+        }
+
+        .stat-box.blue .stat-value {
+            color: var(--accent-blue);
+        }
+
+        .stat-box.amber .stat-value {
+            color: var(--accent-amber);
+        }
+
+        /* ===== CONFUSION MATRIX ===== */
+        .confusion-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .cm-cell {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .cm-cell .cm-value {
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .cm-cell .cm-label {
+            font-size: 12px;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cm-tp {
+            background: var(--accent-green-dim);
+            color: var(--accent-green);
+        }
+
+        .cm-fn {
+            background: var(--accent-red-dim);
+            color: var(--accent-red);
+        }
+
+        .cm-fp {
+            background: var(--accent-amber-dim);
+            color: var(--accent-amber);
+        }
+
+        .cm-tn {
+            background: var(--accent-blue-dim);
+            color: var(--accent-blue);
+        }
+
+        /* ===== COMPARISON TABLE ===== */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 14px 18px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .comparison-table th {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-blue);
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .comparison-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .comparison-table tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .delta-positive {
+            color: var(--accent-green);
+            font-weight: 700;
+        }
+
+        .delta-negative {
+            color: var(--accent-red);
+            font-weight: 700;
+        }
+
+        /* ===== CHARTS ===== */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .chart-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+
+        .chart-container canvas {
+            max-height: 350px;
+        }
+
+        /* ===== PAYLOAD TABLE ===== */
+        .payload-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .payload-table th,
+        .payload-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        .payload-table th {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            font-weight: 700;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+
+        .payload-table tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .payload-table .payload-text {
+            max-width: 700px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            color: var(--accent-red);
+        }
+
+        .payload-table .idx {
+            color: var(--text-muted);
+            width: 60px;
+        }
+
+        .payload-table .status {
+            width: 80px;
+            font-weight: 700;
+        }
+
+        .status-200 {
+            color: var(--accent-amber);
+        }
+
+        .status-403 {
+            color: var(--accent-green);
+        }
+
+        /* ===== FP TABLE ===== */
+        .fp-table th {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-amber);
+        }
+
+        .fp-table .payload-text {
+            color: var(--accent-amber);
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            padding: 24px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-green {
+            background: var(--accent-green-dim);
+            color: var(--accent-green);
+        }
+
+        .badge-red {
+            background: var(--accent-red-dim);
+            color: var(--accent-red);
+        }
+
+        .table-info {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- ===== HEADER ===== -->
+        <div class="header">
+            <div class="header-title">🛡️ WAF Benchmark Report</div>
+            <div class="header-meta">
+                <div class="meta-item">
+                    <span class="label">Dataset:</span>
+                    <span class="value">Test</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Target:</span>
+                    <span class="value">http://localhost:8080</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Method:</span>
+                    <span class="value">GET</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Total Payloads:</span>
+                    <span class="value">100</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Duration:</span>
+                    <span class="value">3m 42s</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Date:</span>
+                    <span class="value">2026-03-02 23:00:00</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Tool Version:</span>
+                    <span class="value">v1.0.0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== STAT BOXES ===== -->
+        <div class="stat-grid">
+            <div class="stat-box green">
+                <div class="stat-value">93.0%</div>
+                <div class="stat-label">Accuracy</div>
+            </div>
+            <div class="stat-box blue">
+                <div class="stat-value">96.49%</div>
+                <div class="stat-label">Precision</div>
+            </div>
+            <div class="stat-box amber">
+                <div class="stat-value">91.67%</div>
+                <div class="stat-label">Recall (Detection Rate)</div>
+            </div>
+            <div class="stat-box red">
+                <div class="stat-value">94.02%</div>
+                <div class="stat-label">F1-Score</div>
+            </div>
+        </div>
+
+        <!-- ===== CONFUSION MATRIX ===== -->
+        <div class="card">
+            <div class="card-title">📊 Confusion Matrix</div>
+            <div class="confusion-grid">
+                <div class="cm-cell cm-tp">
+                    <div class="cm-value">55</div>
+                    <div class="cm-label">True Positive (Blocked)</div>
+                </div>
+                <div class="cm-cell cm-fn">
+                    <div class="cm-value">5</div>
+                    <div class="cm-label">False Negative (Bypass!)</div>
+                </div>
+                <div class="cm-cell cm-fp">
+                    <div class="cm-value">2</div>
+                    <div class="cm-label">False Positive (False Alarm)</div>
+                </div>
+                <div class="cm-cell cm-tn">
+                    <div class="cm-value">38</div>
+                    <div class="cm-label">True Negative (Allowed)</div>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- ===== EXECUTIVE SUMMARY ===== -->
+        
+        <div class="card">
+            <div class="card-title">📋 Executive Summary — WAF vs AI Model</div>
+            <p style="color:var(--text-secondary); font-size:13px; margin-bottom:16px;">
+                Comparison with <strong>CNN-BiLSTM-Attention</strong> model
+                from the reference paper on <strong>Test</strong> dataset.
+            </p>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>ModSecurity WAF</th>
+                        <th>CNN-BiLSTM-Attention</th>
+                        <th>Delta (Δ)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>Accuracy</td>
+                        <td>93.00%</td>
+                        <td>99.50%</td>
+                        <td class="delta-negative">
+                            -6.50%
+                        </td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+        
+
+        <!-- ===== CHARTS ===== -->
+        <div class="charts-grid">
+            <div class="chart-container">
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+        <div style="height: 24px;"></div>
+
+        <!-- ===== FALSE NEGATIVES TABLE ===== -->
+        
+        <div class="card">
+            <div class="card-title">🚨 False Negatives — Bypassed Payloads</div>
+            <div class="table-info">
+                Showing top 1 of 5 bypassed payloads
+                (Label=Malicious but WAF returned non-403).
+            </div>
+            <div style="max-height: 600px; overflow-y: auto;">
+                <table class="payload-table">
+                    <thead>
+                        <tr>
+                            <th class="idx">#</th>
+                            <th>Payload</th>
+                            <th class="status">HTTP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="idx">1</td>
+                            <td class="payload-text" title="&lt;script&gt;alert(1)&lt;/script&gt;">&lt;script&gt;alert(1)&lt;/script&gt;</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+
+        <!-- ===== FALSE POSITIVES TABLE ===== -->
+        
+        <div class="card">
+            <div class="card-title">⚠️ False Positives — Incorrectly Blocked</div>
+            <div class="table-info">
+                Showing top 1 of 2 false positives
+                (Label=Benign but WAF returned 403).
+            </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table class="payload-table fp-table">
+                    <thead>
+                        <tr>
+                            <th class="idx">#</th>
+                            <th>Payload</th>
+                            <th class="status">HTTP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="idx">1</td>
+                            <td class="payload-text" title="&lt;script&gt;alert(1)&lt;/script&gt;">&lt;script&gt;alert(1)&lt;/script&gt;</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+
+        <!-- ===== FOOTER ===== -->
+        <div class="footer">
+            Generated by <strong>WAF Auto-Test Runner</strong> v1.0.0 &mdash;
+            2026-03-02 23:00:00 &mdash;
+            Thesis: "Tối ưu hóa thư viện WAF ModSecurity trên Nginx bằng quy tắc tổng quát hóa"
+        </div>
+
+    </div>
+
+    <!-- ===== CHART.JS SCRIPTS ===== -->
+    <script>
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+
+        // --- Pie Chart: Blocked vs Bypassed (Malicious only) ---
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Blocked (TP)', 'Bypassed (FN)'],
+                datasets: [{
+                    data: [55, 5],
+            backgroundColor: ['#22c55e', '#ef4444'],
+            borderColor: ['#16a34a', '#dc2626'],
+            borderWidth: 2,
+            hoverOffset: 8
+        }]
+            },
+            options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Malicious Payload Detection',
+                    font: { size: 16, weight: 'bold' },
+                    padding: 16
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 16, usePointStyle: true, font: { size: 13 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            let pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            return `${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+        });
+
+        // --- Radar Chart: WAF vs AI Model ---
+        new Chart(document.getElementById('radarChart'), {
+            type: 'radar',
+            data: {
+                labels: ['Accuracy', 'Precision', 'Recall', 'F1-Score'],
+                datasets: [
+                    {
+                        label: 'ModSecurity WAF',
+                        data: [93.0, 96.49, 91.67, 94.02],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            borderWidth: 2,
+            pointRadius: 5,
+            pointBackgroundColor: '#3b82f6'
+                    },
+            
+        {
+            label: 'CNN-BiLSTM-Attention',
+                data: [99.5, { { ai_precision } }, { { ai_recall } }, { { ai_f1 } }],
+        borderColor: '#a855f7',
+            backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                borderWidth: 2,
+                    pointRadius: 5,
+                        pointBackgroundColor: '#a855f7'
+                    }
+        
+                ]
+            },
+        options: {
+            responsive: true,
+                scales: {
+                r: {
+                    beginAtZero: false,
+                        min: 80,
+                            max: 100,
+                                ticks: { stepSize: 5, font: { size: 11 } },
+                    grid: { color: '#334155' },
+                    angleLines: { color: '#334155' },
+                    pointLabels: { font: { size: 13, weight: 'bold' } }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                        text: 'Performance Comparison',
+                            font: { size: 16, weight: 'bold' },
+                    padding: 16
+                },
+                legend: {
+                    position: 'bottom',
+                        labels: { padding: 16, usePointStyle: true, font: { size: 13 } }
+                }
+            }
+        }
+        });
+    </script>
+</body>
+
+</html>

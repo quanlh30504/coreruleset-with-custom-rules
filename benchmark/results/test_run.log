@@ -1,0 +1,30 @@
+2026-03-02 23:58:06 [INFO] main: ============================================================
+2026-03-02 23:58:06 [INFO] main: WAF Auto-Test Runner v1.0.0
+2026-03-02 23:58:06 [INFO] main: ============================================================
+2026-03-02 23:58:06 [INFO] core.dataset_reader: Reading dataset from: datasets/Mereani-XSS-Dataset/Payloads.csv
+2026-03-02 23:58:06 [WARNING] core.dataset_reader: UTF-8 decoding failed for datasets/Mereani-XSS-Dataset/Payloads.csv, falling back to latin-1
+2026-03-02 23:58:06 [INFO] core.dataset_reader: Detected columns: payload='Payloads', label='Class'
+2026-03-02 23:58:06 [WARNING] core.dataset_reader: Dropping 1 rows with empty payloads
+2026-03-02 23:58:07 [INFO] core.dataset_reader: Dataset loaded: 43216 total (15149 malicious, 28067 benign)
+2026-03-02 23:58:07 [INFO] main: Dataset: Mereani-XSS
+2026-03-02 23:58:07 [INFO] main: Total payloads: 43216 (Malicious: 15149, Benign: 28067)
+2026-03-02 23:58:07 [INFO] main: Target: http://localhost:8080 (GET)
+2026-03-02 23:58:07 [INFO] main: Workers: 50 | Delay: 0ms
+2026-03-02 23:58:07 [INFO] core.payload_dispatcher: Starting dispatch: 43216 payloads → http://localhost:8080 (GET) | workers=50
+2026-03-02 23:58:35 [INFO] core.payload_dispatcher: Dispatch complete: 43216/43216 payloads processed
+2026-03-02 23:58:35 [INFO] main: Test completed in 28.6 seconds (1513.4 req/s)
+2026-03-02 23:58:35 [INFO] main: ----------------------------------------
+2026-03-02 23:58:35 [INFO] main: RESULTS:
+2026-03-02 23:58:35 [INFO] main:   TP: 15144 | TN: 861 | FP: 27206 | FN: 5 | Errors: 0
+2026-03-02 23:58:35 [INFO] main:   Accuracy:  37.03%
+2026-03-02 23:58:35 [INFO] main:   Precision: 35.76%
+2026-03-02 23:58:35 [INFO] main:   Recall:    99.97%
+2026-03-02 23:58:35 [INFO] main:   F1-Score:  52.68%
+2026-03-02 23:58:35 [INFO] main:   FPR:       96.93%
+2026-03-02 23:58:35 [INFO] main: ----------------------------------------
+2026-03-02 23:58:35 [INFO] report.report_generator: HTML report saved: results/report_mereani_xss_20260302_235835.html
+2026-03-02 23:58:35 [INFO] report.report_generator: Results CSV saved: results/results_mereani_xss_20260302_235835.csv
+2026-03-02 23:58:35 [INFO] report.report_generator: False negatives CSV saved: results/false_negatives_mereani_xss_20260302_235835.csv (5 entries)
+2026-03-02 23:58:35 [INFO] main: ============================================================
+2026-03-02 23:58:35 [INFO] main: ✅ Report saved: results/report_mereani_xss_20260302_235835.html
+2026-03-02 23:58:35 [INFO] main: ============================================================

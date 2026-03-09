@@ -1,0 +1,57 @@
+# =============================================================
+# WAF Auto-Test Runner Configuration
+# =============================================================
+
+# --- Target WAF Server ---
+target:
+  url: "http://localhost:8080"
+  method: "GET"                # GET or POST
+  param_name: "payload"        # Query/body parameter name
+
+# --- Dataset ---
+dataset:
+  filepath: "datasets/xssed_dmoz.csv"
+  name: "XSSed-DMOZ"
+  encoding: "utf-8"
+
+# --- Concurrency & Rate Limiting ---
+performance:
+  max_workers: 50              # Concurrent async workers (semaphore)
+  max_connections: 100          # TCP connection pool size
+  delay_ms: 0                  # Delay between requests (ms), 0 = no delay
+  batch_size: 1000             # Progress update interval
+  request_timeout: 10          # Per-request timeout (seconds)
+  connect_timeout: 5           # TCP connect timeout (seconds)
+  max_retries: 2               # Max retries for failed requests
+
+# --- AI Benchmark Reference (from Paper) ---
+# Paper: "XSS Attack Detection Method Based on CNN-BiLSTM-Attention"
+# DOI: 10.3390/app15168924
+ai_benchmark:
+  model_name: "CNN-BiLSTM-Attention"
+  paper_title: "XSS Attack Detection Method Based on CNN-BiLSTM-Attention"
+  paper_doi: "10.3390/app15168924"
+  datasets:
+    XSSed-DMOZ:
+      accuracy: 0.9950
+      precision: 0.9964
+      recall: 0.9936
+      f1_score: 0.9950
+    Mereani-XSS:
+      accuracy: 0.9920
+      precision: 0.9930
+      recall: 0.9910
+      f1_score: 0.9920
+
+# --- Output ---
+output:
+  report_dir: "results"
+  report_format: "html"
+  export_csv: true
+  export_false_negatives: true
+  top_fn_count: 50             # Number of top FN payloads to display
+
+# --- Logging ---
+logging:
+  level: "INFO"                # DEBUG, INFO, WARNING, ERROR
+  file: "results/test_run.log"
