@@ -1,0 +1,255 @@
+# ============================================================================
+# OWASP CRS - Generalized XSS Detection Rules (OPTIMIZED VERSION)
+# Rule ID Range: 9941000-9941020
+# ============================================================================
+# Purpose: OPTIMIZED hybrid XSS detection combining:
+#   1. Structure-based patterns (HTML tags, events, protocols)
+#   2. Function enumeration with greedy matching (like Original rules)
+#   3. String concatenation detection
+#   4. JS context injection detection
+#   5. HTML entity bypass prevention
+#
+# This version aims to match/exceed Original rules (84.25%) detection rate
+# while maintaining generalization benefits.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# CONFIGURATION VARIABLES
+# ----------------------------------------------------------------------------
+SecAction \
+    "id:9941000,\
+    phase:1,\
+    nolog,\
+    pass,\
+    t:none,\
+    setvar:'tx.xss_nested_decoding=1',\
+    setvar:'tx.xss_max_decode_depth=2',\
+    setvar:'tx.encoding_anomaly_score=3'"
+
+# ============================================================================
+# OPTIMIZED REGEX PATTERN - COMPREHENSIVE HYBRID
+# ============================================================================
+# Key improvements from bypass analysis:
+# 1. Greedy matching with .*? for function arguments
+# 2. String concatenation: ['"]\+['"]
+# 3. Partial function names: (ale|ert|irm|omp|romp|val)
+# 4. JS context: self\., this\., window\., parent\.
+# 5. Flexible word boundary: removed strict \b where needed
+# 6. Added .href= pattern for location attacks
+# ============================================================================
+
+# ============================================================================
+# LAYER 0: URL PATH CAPTURE AND DECODE (CRITICAL FOR BASE64 URLPATH)
+# ============================================================================
+# This layer captures URL path segment and decodes it before XSS detection
+# Similar approach to Original rules but with enhanced patterns
+
+# ----------------------------------------------------------------------------
+# Rule 9941001: Capture URL Path Segment for Processing
+# Captures: /PGJvZHkgb25sb2FkPWFsZXJ0KCd0ZXN0MScpPg -> tx.xss_urlpath_raw
+# ----------------------------------------------------------------------------
+SecRule REQUEST_URI "(?i)(?:(?:setInterval|setTimeout|Function)\s*\(\s*['\"][^'\"]*\+[^'\"]*['\"]|['\"](?:ale|ert|lert|pro|mpt|ompt|con|irm|firm|eva|val)\s*['\"][^'\"]*\+|['\"]?\s*-\s*(?:alert|confirm|prompt|eval)\s*\(|\(\s*['\"]\s*\+\s*['\"]\s*(?:rt|mpt|irm|val)\s*\(\))" \
+    "id:9941020,\
+    phase:2,\
+    t:none,\
+    t:urlDecodeUni,\
+    t:base64Decode,\
+    t:htmlEntityDecode,\
+    t:jsDecode,\
+    t:removeNulls,\
+    t:compressWhitespace,\
+    t:lowercase,\
+    block,\
+    msg:'XSS String Concatenation with Partial Function Detected',\
+    logdata:'Payload: %{MATCHED_VAR}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-string-concat-partial',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/CONCAT_PARTIAL',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
+
+# ----------------------------------------------------------------------------
+# Rule 9941021: Inline Tag Breaking XSS Detection
+# Catches: autof<x>ocus o<x>nfocus=alert<x>(1)// - tags inserted to break keywords
+# ----------------------------------------------------------------------------
+SecRule ARGS|ARGS_GET|REQUEST_URI "@rx (?i)(?:o\s*<[^>]*>\s*n\s*(?:focus|load|error|click|mouse)|a\s*<[^>]*>\s*l\s*<[^>]*>\s*e\s*<[^>]*>\s*r\s*<[^>]*>\s*t|s\s*<[^>]*>\s*c\s*<[^>]*>\s*r\s*<[^>]*>\s*i\s*<[^>]*>\s*p\s*<[^>]*>\s*t)" \
+    "id:9941021,\
+    phase:2,\
+    t:none,\
+    t:urlDecodeUni,\
+    t:base64Decode,\
+    t:removeNulls,\
+    t:lowercase,\
+    block,\
+    msg:'XSS Inline Tag Breaking Attack Detected',\
+    logdata:'Payload: %{MATCHED_VAR}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-tag-breaking',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/TAG_BREAK',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
+
+# ----------------------------------------------------------------------------
+# Rule 9941022: Full HTML Entity Encoded XSS Detection
+# Catches: &lt;svg/onload&equals;alert(1)&gt;
+# Note: Check for HTML entity patterns BEFORE htmlEntityDecode
+# ----------------------------------------------------------------------------
+SecRule ARGS|ARGS_GET|REQUEST_URI "@rx (?i)(?:\&(?:lt|#60|#x3c);?\s*(?:script|svg|img|body|iframe|object|embed)|\&(?:lt|#60|#x3c);?[^&]*on\w+\s*\&(?:equals|#61|#x3d);?|javascript\s*\&(?:colon|#58|#x3a);?)" \
+    "id:9941022,\
+    phase:2,\
+    t:none,\
+    t:urlDecodeUni,\
+    t:base64Decode,\
+    t:removeNulls,\
+    t:compressWhitespace,\
+    t:lowercase,\
+    block,\
+    msg:'XSS Full HTML Entity Encoding Attack Detected',\
+    logdata:'Payload: %{MATCHED_VAR}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-html-entity-full',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/HTML_ENTITY_FULL',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
+
+# ----------------------------------------------------------------------------
+# Rule 9941023: Event Handler with Unusual Attribute Names
+# Catches: <p only=1337 onmouseenter=...>, decoy attributes before real events
+# ----------------------------------------------------------------------------
+SecRule ARGS|ARGS_GET|REQUEST_URI "@rx (?i)(?:<\s*\w+[^>]*\s+\w+\s*=\s*[^>]*\s+on(?:mouse|key|focus|blur|load|error|click|touch|pointer|drag|scroll|wheel|copy|cut|paste|select|input|change|submit|reset|toggle|show|before|after)\w*\s*=)" \
+    "id:9941023,\
+    phase:2,\
+    t:none,\
+    t:urlDecodeUni,\
+    t:base64Decode,\
+    t:htmlEntityDecode,\
+    t:jsDecode,\
+    t:removeNulls,\
+    t:compressWhitespace,\
+    t:lowercase,\
+    block,\
+    msg:'XSS Event Handler with Decoy Attribute Detected',\
+    logdata:'Payload: %{MATCHED_VAR}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-event-decoy',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/EVENT_DECOY',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
+
+# ----------------------------------------------------------------------------
+# Rule 9941024: JS Context Injection with Control Flow
+# Catches: "));if(!self.x)self.x=!alert(...)}catch(e){}//
+# ----------------------------------------------------------------------------
+SecRule ARGS|ARGS_GET|REQUEST_URI "@rx (?i)(?:\)\s*\)\s*;?\s*(?:if|while|for|switch|try)\s*\(|\}?\s*catch\s*\(\s*\w*\s*\)\s*\{|=\s*!\s*(?:alert|confirm|prompt|eval)\s*\(|self\s*\.\s*\w+\s*=\s*!\s*(?:alert|confirm|prompt)|throw\s+(?:0|1|null|true|false)\s*;?\s*(?:alert|confirm|prompt))" \
+    "id:9941024,\
+    phase:2,\
+    t:none,\
+    t:urlDecodeUni,\
+    t:base64Decode,\
+    t:htmlEntityDecode,\
+    t:jsDecode,\
+    t:removeNulls,\
+    t:compressWhitespace,\
+    t:lowercase,\
+    block,\
+    msg:'XSS JS Context Injection with Control Flow Detected',\
+    logdata:'Payload: %{MATCHED_VAR}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-js-context-control',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/JS_CONTEXT_CTRL',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
+
+# ----------------------------------------------------------------------------
+# Rule 9941025: Script Tag Injection with Null Byte or Special Chars
+# Catches: <<scr[NULL]ipt/src=..., script tag with null bytes
+# ----------------------------------------------------------------------------
+SecRule ARGS|ARGS_GET|REQUEST_URI "@rx (?i)(?:<\s*<+\s*scr|<\s*scr\s*ipt|scr\x00ipt|script\s*/\s*src\s*=)" \
+    "id:9941025,\
+    phase:2,\
+    t:none,\
+    t:urlDecodeUni,\
+    t:base64Decode,\
+    t:lowercase,\
+    block,\
+    msg:'XSS Script Tag with Obfuscation Detected',\
+    logdata:'Payload: %{MATCHED_VAR}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-script-obfuscation',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/SCRIPT_OBFUSC',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
+
+# ============================================================================
+# END OF OPTIMIZED GENERALIZED XSS RULES (v2 - 2026-01-15)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Rule 9941052: Inline Tag Breaking in URLPath (CRITICAL FIX)
+# Catches: autof<x>ocus o<x>nfocus=alert<x>(1)// in URL path
+# Pattern: keyword with inline tags like <x> inserted to break detection
+# ----------------------------------------------------------------------------
+SecRule TX:xss_urlpath_raw|TX:xss_urlpath_decoded "@rx (?i)(?:o\s*<[^>]*>\s*n\s*(?:focus|load|error|click|wheel|mouse[a-z]*|key[a-z]*|touch[a-z]*|pointer[a-z]*|drag[a-z]*)|a\s*<[^>]*>\s*(?:l\s*<[^>]*>)?\s*e\s*<[^>]*>\s*r\s*<[^>]*>\s*t|on\s*<[^>]*>\s*(?:focus|load|error|click)|=\s*<[^>]*>\s*alert|autof\s*<[^>]*>\s*ocus)" \
+    "id:9941052,\
+    phase:2,\
+    t:none,\
+    t:lowercase,\
+    block,\
+    msg:'XSS Inline Tag Breaking in URL Path Detected',\
+    logdata:'Decoded: %{TX.xss_urlpath_decoded}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-tag-breaking-urlpath',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/TAG_BREAK_PATH',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
+
+# ----------------------------------------------------------------------------
+# Rule 9941053: URL Decode URL Path Value
+# Adds URL decoding to captured URL path for patterns like %3C = <
+# ----------------------------------------------------------------------------
+SecRule TX:xss_urlpath_raw "@rx .+" \
+    "id:9941053,\
+    phase:2,\
+    log,\
+    auditlog,\
+    pass,\
+    capture,\
+    t:none,\
+    t:urlDecodeUni,\
+    t:removeNulls,\
+    setvar:'tx.xss_urlpath_urldecoded=%{MATCHED_VAR}',\
+    msg:'XSS: URL-decoded path value: %{TX.xss_urlpath_urldecoded}'"
+
+# ----------------------------------------------------------------------------
+# Rule 9941054: XSS Detection in URL-decoded URL Path
+# Detects inline tag breaking in URL-decoded path values
+# ----------------------------------------------------------------------------
+SecRule TX:xss_urlpath_urldecoded "@rx (?i)(?:o\s*<[^>]*>\s*n\s*(?:focus|load|error|click|wheel|mouse[a-z]*|key[a-z]*)|<[^>]*>\s*(?:alert|confirm|prompt|eval)|autof\s*<[^>]*>\s*ocus|on\w+\s*=\s*(?:alert|confirm|prompt|eval)|=\s*<[^>]*>\s*(?:alert|confirm|prompt))" \
+    "id:9941054,\
+    phase:2,\
+    t:none,\
+    t:lowercase,\
+    block,\
+    msg:'XSS Inline Tag in URL-decoded Path Detected',\
+    logdata:'Decoded: %{TX.xss_urlpath_urldecoded}',\
+    severity:CRITICAL,\
+    tag:'attack-xss',\
+    tag:'attack-tag-breaking-url',\
+    tag:'paranoia-level/4',\
+    tag:'OWASP_CRS/XSS/TAG_BREAK_URL',\
+    setvar:'tx.xss_score=+%{tx.critical_anomaly_score}',\
+    setvar:'tx.inbound_anomaly_score_pl4=+%{tx.critical_anomaly_score}'"
