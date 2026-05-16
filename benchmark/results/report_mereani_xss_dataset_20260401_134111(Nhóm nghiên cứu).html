@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAF Benchmark Report — Mereani-XSS-Dataset</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        /* ===== RESET & BASE ===== */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --bg-card-hover: #273549;
+            --border: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-green: #22c55e;
+            --accent-green-dim: rgba(34, 197, 94, 0.15);
+            --accent-red: #ef4444;
+            --accent-red-dim: rgba(239, 68, 68, 0.15);
+            --accent-blue: #3b82f6;
+            --accent-blue-dim: rgba(59, 130, 246, 0.15);
+            --accent-amber: #f59e0b;
+            --accent-amber-dim: rgba(245, 158, 11, 0.15);
+            --accent-purple: #a855f7;
+            --radius: 12px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .header-title {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+
+        .header-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .meta-item .label {
+            color: var(--text-muted);
+        }
+
+        .meta-item .value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ===== STAT GRID ===== */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .stat-box:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-blue);
+        }
+
+        .stat-box .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .stat-box .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-box.green .stat-value {
+            color: var(--accent-green);
+        }
+
+        .stat-box.red .stat-value {
+            color: var(--accent-red);
+        }
+
+        .stat-box.blue .stat-value {
+            color: var(--accent-blue);
+        }
+
+        .stat-box.amber .stat-value {
+            color: var(--accent-amber);
+        }
+
+        /* ===== CONFUSION MATRIX ===== */
+        .confusion-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .cm-cell {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .cm-cell .cm-value {
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .cm-cell .cm-label {
+            font-size: 12px;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cm-tp {
+            background: var(--accent-green-dim);
+            color: var(--accent-green);
+        }
+
+        .cm-fn {
+            background: var(--accent-red-dim);
+            color: var(--accent-red);
+        }
+
+        .cm-fp {
+            background: var(--accent-amber-dim);
+            color: var(--accent-amber);
+        }
+
+        .cm-tn {
+            background: var(--accent-blue-dim);
+            color: var(--accent-blue);
+        }
+
+        /* ===== COMPARISON TABLE ===== */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 14px 18px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .comparison-table th {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-blue);
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .comparison-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .comparison-table tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .delta-positive {
+            color: var(--accent-green);
+            font-weight: 700;
+        }
+
+        .delta-negative {
+            color: var(--accent-red);
+            font-weight: 700;
+        }
+
+        /* ===== CHARTS ===== */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .chart-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+
+        .chart-container canvas {
+            max-height: 350px;
+        }
+
+        /* ===== PAYLOAD TABLE ===== */
+        .payload-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .payload-table th,
+        .payload-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        .payload-table th {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            font-weight: 700;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+
+        .payload-table tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .payload-table .payload-text {
+            max-width: 700px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            color: var(--accent-red);
+        }
+
+        .payload-table .idx {
+            color: var(--text-muted);
+            width: 60px;
+        }
+
+        .payload-table .status {
+            width: 80px;
+            font-weight: 700;
+        }
+
+        .status-200 {
+            color: var(--accent-amber);
+        }
+
+        .status-403 {
+            color: var(--accent-green);
+        }
+
+        /* ===== FP TABLE ===== */
+        .fp-table th {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-amber);
+        }
+
+        .fp-table .payload-text {
+            color: var(--accent-amber);
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            padding: 24px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-green {
+            background: var(--accent-green-dim);
+            color: var(--accent-green);
+        }
+
+        .badge-red {
+            background: var(--accent-red-dim);
+            color: var(--accent-red);
+        }
+
+        .table-info {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- ===== HEADER ===== -->
+        <div class="header">
+            <div class="header-title">🛡️ WAF Benchmark Report</div>
+            <div class="header-meta">
+                <div class="meta-item">
+                    <span class="label">Dataset:</span>
+                    <span class="value">Mereani-XSS-Dataset</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Target:</span>
+                    <span class="value">http://localhost:8080</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Method:</span>
+                    <span class="value">GET</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Total Payloads:</span>
+                    <span class="value">43,216</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Duration:</span>
+                    <span class="value">0m 11s</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Date:</span>
+                    <span class="value">2026-04-01 13:41:11</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Tool Version:</span>
+                    <span class="value">v1.0.0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== STAT BOXES ===== -->
+        <div class="stat-grid">
+            <div class="stat-box green">
+                <div class="stat-value">97.47%</div>
+                <div class="stat-label">Accuracy</div>
+            </div>
+            <div class="stat-box blue">
+                <div class="stat-value">95.35%</div>
+                <div class="stat-label">Precision</div>
+            </div>
+            <div class="stat-box amber">
+                <div class="stat-value">97.54%</div>
+                <div class="stat-label">Recall (Detection Rate)</div>
+            </div>
+            <div class="stat-box red">
+                <div class="stat-value">96.43%</div>
+                <div class="stat-label">F1-Score</div>
+            </div>
+        </div>
+
+        <!-- ===== CONFUSION MATRIX ===== -->
+        <div class="card">
+            <div class="card-title">📊 Confusion Matrix</div>
+            <div class="confusion-grid">
+                <div class="cm-cell cm-tp">
+                    <div class="cm-value">14,777</div>
+                    <div class="cm-label">True Positive (Blocked)</div>
+                </div>
+                <div class="cm-cell cm-fn">
+                    <div class="cm-value">372</div>
+                    <div class="cm-label">False Negative (Bypass!)</div>
+                </div>
+                <div class="cm-cell cm-fp">
+                    <div class="cm-value">721</div>
+                    <div class="cm-label">False Positive (False Alarm)</div>
+                </div>
+                <div class="cm-cell cm-tn">
+                    <div class="cm-value">27,346</div>
+                    <div class="cm-label">True Negative (Allowed)</div>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- ===== EXECUTIVE SUMMARY ===== -->
+        
+        <div class="card">
+            <div class="card-title">📋 Executive Summary — WAF vs AI Model</div>
+            <p style="color:var(--text-secondary); font-size:13px; margin-bottom:16px;">
+                Comparison with <strong>CNN-BiLSTM-Attention</strong> model
+                from the reference paper on <strong>Mereani-XSS-Dataset</strong> dataset.
+            </p>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>ModSecurity WAF</th>
+                        <th>CNN-BiLSTM-Attention</th>
+                        <th>Delta (Δ)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>Accuracy</td>
+                        <td>97.47%</td>
+                        <td>99.20%</td>
+                        <td class="delta-negative">
+                            -1.73%
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Precision</td>
+                        <td>95.35%</td>
+                        <td>99.30%</td>
+                        <td class="delta-negative">
+                            -3.95%
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td>Recall</td>
+                        <td>97.54%</td>
+                        <td>99.10%</td>
+                        <td class="delta-negative">
+                            -1.56%
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td>F1-Score</td>
+                        <td>96.43%</td>
+                        <td>99.20%</td>
+                        <td class="delta-negative">
+                            -2.77%
+                        </td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+        
+
+        <!-- ===== CHARTS ===== -->
+        <div class="charts-grid">
+            <div class="chart-container">
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+        <div style="height: 24px;"></div>
+
+        <!-- ===== FALSE NEGATIVES TABLE ===== -->
+        
+        <div class="card">
+            <div class="card-title">🚨 False Negatives — Bypassed Payloads</div>
+            <div class="table-info">
+                Showing top 50 of 372 bypassed payloads
+                (Label=Malicious but WAF returned non-403).
+            </div>
+            <div style="max-height: 600px; overflow-y: auto;">
+                <table class="payload-table">
+                    <thead>
+                        <tr>
+                            <th class="idx">#</th>
+                            <th>Payload</th>
+                            <th class="status">HTTP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="idx">1</td>
+                            <td class="payload-text" title="http://mlb.mlb.com/components/global/click_through.html?jumpto=http://google.com">http://mlb.mlb.com/components/global/click_through.html?jumpto=http://google.com</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">2</td>
+                            <td class="payload-text" title="http://www.phpbb.com/ads/www/delivery/ck.php?oaparams=2__bannerid=154__zoneid=7__cb=ee2af150d0__oade&lt;br&gt;st=http://google.com">http://www.phpbb.com/ads/www/delivery/ck.php?oaparams=2__bannerid=154__zoneid=7__cb=ee2af150d0__oade&lt;br&gt;st=http://google.com</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">3</td>
+                            <td class="payload-text" title="http://www.worlddatinghere.com/?did=&amp;quot;&amp;gt;&amp;lt;h1&amp;gt;xss&amp;lt;/h1&amp;gt;">http://www.worlddatinghere.com/?did=&amp;quot;&amp;gt;&amp;lt;h1&amp;gt;xss&amp;lt;/h1&amp;gt;</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">4</td>
+                            <td class="payload-text" title="http://www.msn.co.kr/webinclude/exredir.asp?startid=clip_5644&amp;amp;adgroup=krmgen&amp;amp;url=%68%74%74%70%3a%2f%&lt;br&gt;2f%77%77%77%2e%6c%69%6e%75%78%2e%6f%72%67">http://www.msn.co.kr/webinclude/exredir.asp?startid=clip_5644&amp;amp;adgroup=krmgen&amp;amp;url=%68%74%74%70%3a%2f%&lt;br&gt;2f%77%77%77%2e%6c%69%6e%75%78%2e%6f%72%67</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">5</td>
+                            <td class="payload-text" title="https://store.acronis.com/325/cookie?affiliate=6895&amp;amp;redirectto=http://insecurity.ro">https://store.acronis.com/325/cookie?affiliate=6895&amp;amp;redirectto=http://insecurity.ro</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">6</td>
+                            <td class="payload-text" title="http://video.state.gov/en/search/pwnscriptalertxsstorm-scriptpwnh1xsstorm/chduij48c2nyaxb0pmfszxj0kc&lt;br&gt;j4c3n0b3jtiik8l3njcmlwdd48inb3bjxomt54c3n0b3jt">http://video.state.gov/en/search/pwnscriptalertxsstorm-scriptpwnh1xsstorm/chduij48c2nyaxb0pmfszxj0kc&lt;br&gt;j4c3n0b3jtiik8l3njcmlwdd48inb3bjxomt54c3n0b3jt</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">7</td>
+                            <td class="payload-text" title="http://www5.rptea.com/base64/base64.aspx?__viewstate=%2fwepdwujnzu4odazmzazd2qwagidd2qwagihdw8wah4ev&lt;br&gt;gv4daunjyi%2bpc90axrszt48c2nyaxb0pmfszxj0kdezmzcppc9zy3jpchq%2bzgrkbbukpsa8lks70y4klors5ddv4ek%3d&amp;amp;tx&lt;br&gt;tinput=jyi%2bpc90axrszt48c2nyaxb0pmfszxj0kdezmzcppc9zy3jpchq%2b&amp;amp;btndecrypt=base64+to+normal+string&amp;amp;_&lt;br&gt;_eventvalidation=%2fwewbalrpn2adqkt8absbwl0m%2f3ibgldnbn1cv5e2cqkcyc4w3ifuv3%2bzkupegmd">http://www5.rptea.com/base64/base64.aspx?__viewstate=%2fwepdwujnzu4odazmzazd2qwagidd2qwagihdw8wah4ev&lt;br&gt;gv4daunjyi%2bpc90axrszt48c2nyaxb0pmfszxj0kdezmzcppc9zy3jpchq%2bzgrkbbukpsa8lks70y4klors5ddv4ek%3d&amp;amp;tx&lt;br&gt;tinput=jyi%2bpc90axrszt48c2nyaxb0pmfszxj0kdezmzcppc9zy3jpchq%2b&amp;amp;btndecrypt=base64+to+normal+string&amp;amp;_&lt;br&gt;_eventvalidation=%2fwewbalrpn2adqkt8absbwl0m%2f3ibgldnbn1cv5e2cqkcyc4w3ifuv3%2bzkupegmd</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">8</td>
+                            <td class="payload-text" title="http://www.expedia.de/pub/agent.dll?qscr=redr&amp;amp;rurl=http://s5.tinypic.com/2pzcgty.jpg">http://www.expedia.de/pub/agent.dll?qscr=redr&amp;amp;rurl=http://s5.tinypic.com/2pzcgty.jpg</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">9</td>
+                            <td class="payload-text" title="http://athensdialogues.chs.harvard.edu/cgi-bin/webobjects/athensdialogues.woa/1/wo/nbx6tehtbe6xr9ei4&lt;br&gt;nbxbg/0.5.1.0#178">http://athensdialogues.chs.harvard.edu/cgi-bin/webobjects/athensdialogues.woa/1/wo/nbx6tehtbe6xr9ei4&lt;br&gt;nbxbg/0.5.1.0#178</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">10</td>
+                            <td class="payload-text" title="http://jobsearch.sedaliademocratjobs.monster.com/jobs/?q=__22__3e__3ciframe-src__3d__22http__3a__2f_&lt;br&gt;_2fxssed__2ecom__22__3e&amp;amp;rad=50&amp;amp;sort=di.dt&amp;amp;re=130&amp;amp;sid=state&amp;amp;radcs=20&amp;amp;zip=65301&amp;amp;x=0&amp;amp;cy=us&amp;amp;brd=1&amp;amp;rad_un&lt;br&gt;its=miles&amp;amp;vw=b&amp;amp;utf8=%c9%98">http://jobsearch.sedaliademocratjobs.monster.com/jobs/?q=__22__3e__3ciframe-src__3d__22http__3a__2f_&lt;br&gt;_2fxssed__2ecom__22__3e&amp;amp;rad=50&amp;amp;sort=di.dt&amp;amp;re=130&amp;amp;sid=state&amp;amp;radcs=20&amp;amp;zip=65301&amp;amp;x=0&amp;amp;cy=us&amp;amp;brd=1&amp;amp;rad_un&lt;br&gt;its=miles&amp;amp;vw=b&amp;amp;utf8=%c9%98</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">11</td>
+                            <td class="payload-text" title="http://wzus1.ask.com/r?t=p&amp;amp;d=us&amp;amp;s=a&amp;amp;c=a&amp;amp;l=dir&amp;amp;o=0&amp;amp;sv=0a5c407b&amp;amp;ip=5f19241a&amp;amp;id=94e847ac91f239e2b20a305&lt;br&gt;71533afb0&amp;amp;q=how+long+did+mark+twain+insist+his+life+story+go+unpublished%3f&amp;amp;p=1&amp;amp;qs=3045&amp;amp;ac=254&amp;amp;g=1a3&lt;br&gt;9vz0x%y%zxm&amp;amp;en=qotd&amp;amp;io=0&amp;amp;ep=&amp;amp;eo=&amp;amp;b=a001&amp;amp;bc=&amp;amp;br=&amp;amp;tp=171&amp;amp;ec=1&amp;amp;pt=http://insecurity.ro&amp;amp;ex=&amp;amp;url=&amp;amp;u=http:&lt;br&gt;//insecurity.ro">http://wzus1.ask.com/r?t=p&amp;amp;d=us&amp;amp;s=a&amp;amp;c=a&amp;amp;l=dir&amp;amp;o=0&amp;amp;sv=0a5c407b&amp;amp;ip=5f19241a&amp;amp;id=94e847ac91f239e2b20a305&lt;br&gt;71533afb0&amp;amp;q=how+long+did+mark+twain+insist+his+life+story+go+unpublished%3f&amp;amp;p=1&amp;amp;qs=3045&amp;amp;ac=254&amp;amp;g=1a3&lt;br&gt;9vz0x%y%zxm&amp;amp;en=qotd&amp;amp;io=0&amp;amp;ep=&amp;amp;eo=&amp;amp;b=a001&amp;amp;bc=&amp;amp;br=&amp;amp;tp=171&amp;amp;ec=1&amp;amp;pt=http://insecurity.ro&amp;amp;ex=&amp;amp;url=&amp;amp;u=http:&lt;br&gt;//insecurity.ro</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">12</td>
+                            <td class="payload-text" title="http://www.att.net/s/context.dll?id=135&amp;amp;type=clickthru&amp;amp;name=webdirectory.sortbycategories.yahoo.news&lt;br&gt;&amp;amp;redirecturl=http://insecurity.ro">http://www.att.net/s/context.dll?id=135&amp;amp;type=clickthru&amp;amp;name=webdirectory.sortbycategories.yahoo.news&lt;br&gt;&amp;amp;redirecturl=http://insecurity.ro</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">13</td>
+                            <td class="payload-text" title="https://muumuu-domain.com/?mode=conpane&amp;amp;state=login&amp;amp;exec=1">https://muumuu-domain.com/?mode=conpane&amp;amp;state=login&amp;amp;exec=1</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">14</td>
+                            <td class="payload-text" title="http://www.bee-india.nic.in/content.php?img=http://example.org/malicious.js">http://www.bee-india.nic.in/content.php?img=http://example.org/malicious.js</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">15</td>
+                            <td class="payload-text" title="http://www.usafa.af.mil/externallinkdisclaimer.cfm?el=&amp;lt;font%20color=red&amp;gt;&amp;lt;br&amp;gt;&amp;lt;br&amp;gt;&amp;lt;br&amp;gt;&amp;lt;font%20size=7&amp;gt;x&lt;br&gt;sslotion&amp;lt;h1&amp;gt;xssed&amp;lt;/h1&amp;gt;">http://www.usafa.af.mil/externallinkdisclaimer.cfm?el=&amp;lt;font%20color=red&amp;gt;&amp;lt;br&amp;gt;&amp;lt;br&amp;gt;&amp;lt;br&amp;gt;&amp;lt;font%20size=7&amp;gt;x&lt;br&gt;sslotion&amp;lt;h1&amp;gt;xssed&amp;lt;/h1&amp;gt;</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">16</td>
+                            <td class="payload-text" title="http://thestanfordchallenge.stanford.edu/get/layout/g2s/&amp;lt;font%20color=red&amp;gt;&amp;lt;h1&amp;gt;xssed!%20:d&amp;lt;/h1&amp;gt;&amp;lt;h2&amp;gt;lo&lt;br&gt;l,wut,%20umad?&amp;lt;/h2&amp;gt;">http://thestanfordchallenge.stanford.edu/get/layout/g2s/&amp;lt;font%20color=red&amp;gt;&amp;lt;h1&amp;gt;xssed!%20:d&amp;lt;/h1&amp;gt;&amp;lt;h2&amp;gt;lo&lt;br&gt;l,wut,%20umad?&amp;lt;/h2&amp;gt;</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">17</td>
+                            <td class="payload-text" title="http://krebsonsecurity.com/jailed-chronopay-founder-denied-bail/?administer_redirect_1=http://vuln.x&lt;br&gt;ssed.net/thirdparty/scripts/python5.html?utm_campaign=70150000000ozh4&amp;amp;utm_source=online&amp;amp;utm_medium=k&lt;br&gt;rebsbank">http://krebsonsecurity.com/jailed-chronopay-founder-denied-bail/?administer_redirect_1=http://vuln.x&lt;br&gt;ssed.net/thirdparty/scripts/python5.html?utm_campaign=70150000000ozh4&amp;amp;utm_source=online&amp;amp;utm_medium=k&lt;br&gt;rebsbank</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">18</td>
+                            <td class="payload-text" title="http://share.gulli.com/folders?page=edit&amp;amp;key=yzjvujbggb51rt9dnvnbyw9v7bgl4b45">http://share.gulli.com/folders?page=edit&amp;amp;key=yzjvujbggb51rt9dnvnbyw9v7bgl4b45</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">19</td>
+                            <td class="payload-text" title="http://www.dmm.com/search/=/category=/searchstr=r18mvadeeeddaa98dnandcqhfnrpgtdplsxkigcpewxkdfflf0me&lt;br&gt;vwy_/sort=rank_asc/limit=28/analyze=v1eaavyauqm_/">http://www.dmm.com/search/=/category=/searchstr=r18mvadeeeddaa98dnandcqhfnrpgtdplsxkigcpewxkdfflf0me&lt;br&gt;vwy_/sort=rank_asc/limit=28/analyze=v1eaavyauqm_/</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">20</td>
+                            <td class="payload-text" title="http://so.pcpop.com/cgi-bin/pdt?query=%22%3edefaced%20by%20sponsfull">http://so.pcpop.com/cgi-bin/pdt?query=%22%3edefaced%20by%20sponsfull</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">21</td>
+                            <td class="payload-text" title="http://tr.asus.com/prog_content/middle_search_products.aspx?searchkey=%253d%2522%253e%253c%2573%2563&lt;br&gt;%2572%2569%2570%2574%253e%2561%256c%2565%2572%2574%2528%2564%256f%2563%2575%256d%2565%256e%2574%252e&lt;br&gt;%2563%256f%256f%256b%2569%2565%2529%253c%252f%2573%2563%2572%2569%2570%2574%253e">http://tr.asus.com/prog_content/middle_search_products.aspx?searchkey=%253d%2522%253e%253c%2573%2563&lt;br&gt;%2572%2569%2570%2574%253e%2561%256c%2565%2572%2574%2528%2564%256f%2563%2575%256d%2565%256e%2574%252e&lt;br&gt;%2563%256f%256f%256b%2569%2565%2529%253c%252f%2573%2563%2572%2569%2570%2574%253e</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">22</td>
+                            <td class="payload-text" title="http://recruiter.monsterindia.com/ecom/searchresult.html?r1208408432">http://recruiter.monsterindia.com/ecom/searchresult.html?r1208408432</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">23</td>
+                            <td class="payload-text" title="http://search.utorrent.com/search.php?q=n%2ew%2ea&amp;amp;e=http%3a%2f%2fwww%2emininova%2eorg%2fsearch%2f%3f&lt;br&gt;utorrent%26search%3d&amp;amp;u=1">http://search.utorrent.com/search.php?q=n%2ew%2ea&amp;amp;e=http%3a%2f%2fwww%2emininova%2eorg%2fsearch%2f%3f&lt;br&gt;utorrent%26search%3d&amp;amp;u=1</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">24</td>
+                            <td class="payload-text" title="http://www.lufthansa.com/online/portal/!ut/p/kcxml/04_sj9spykssy0xplmnmz0vm0y_qjzkln4g3cjcxamlb2eb--&lt;br&gt;phooo5iqt76vh75uan6afofuaer5y6kigdnbbch/delta/base64xml/l0ldu0lkq1rpn29na21du1ntu1nrl29ob1fbqulrz2pg&lt;br&gt;sufbuwhdrulrakdfsnpoqknks1ehlzrkrmldbzbladfpy29uuvzhagqtc0lum2k5vtnzusehlzdfmf8xtecylzkyodu3mc9zys5m&lt;br&gt;b3jnb3r0zw5qyxnzd29yza!!?pc_7_0_1lg2_command=forgottenpassword#7_0_1lg2">http://www.lufthansa.com/online/portal/!ut/p/kcxml/04_sj9spykssy0xplmnmz0vm0y_qjzkln4g3cjcxamlb2eb--&lt;br&gt;phooo5iqt76vh75uan6afofuaer5y6kigdnbbch/delta/base64xml/l0ldu0lkq1rpn29na21du1ntu1nrl29ob1fbqulrz2pg&lt;br&gt;sufbuwhdrulrakdfsnpoqknks1ehlzrkrmldbzbladfpy29uuvzhagqtc0lum2k5vtnzusehlzdfmf8xtecylzkyodu3mc9zys5m&lt;br&gt;b3jnb3r0zw5qyxnzd29yza!!?pc_7_0_1lg2_command=forgottenpassword#7_0_1lg2</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">25</td>
+                            <td class="payload-text" title="http://www.specialolympics.org/special+olympics+public+website/english/contact_us/process_feedback.h&lt;br&gt;tml">http://www.specialolympics.org/special+olympics+public+website/english/contact_us/process_feedback.h&lt;br&gt;tml</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">26</td>
+                            <td class="payload-text" title="http://www.riogrande.gov.ar/index.php?s=www523xv7pcrptc$$buscar/inicio&amp;amp;l=es">http://www.riogrande.gov.ar/index.php?s=www523xv7pcrptc$$buscar/inicio&amp;amp;l=es</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">27</td>
+                            <td class="payload-text" title="http://www.rackspacecareers.com/index.php?page=contactus&amp;amp;processed=true">http://www.rackspacecareers.com/index.php?page=contactus&amp;amp;processed=true</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">28</td>
+                            <td class="payload-text" title="http://www.vietnam.gov.vn/portal/page?_pageid=33,127911&amp;amp;_dad=portal&amp;amp;_schema=portal">http://www.vietnam.gov.vn/portal/page?_pageid=33,127911&amp;amp;_dad=portal&amp;amp;_schema=portal</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">29</td>
+                            <td class="payload-text" title="https://shopping.discovery.com/stores/servlet/directemailsignup?langid=-1&amp;amp;krypto=yk9tiivlbtrqkjzpqpe&lt;br&gt;93gn2llsxvtjkdmq2nbevj3xmc%2bhtt4mntswsiznchyn9j%2fl6slqpz23d%0a%2fgugenud5qhaa97x9wecxlzbhrrf95ulpk&lt;br&gt;cckzpjj3eeorkjnvqzfowo8%2bmv2j0kf95xz1ym3mkn%0aqws19a%2fm8sgkmmdekatddv5vywurwc5w6xcbili4bubqcr1rwto&lt;br&gt;bmtsohlkjp%2ffa3sadqnjm0fjc%0aoulvdja%3d">https://shopping.discovery.com/stores/servlet/directemailsignup?langid=-1&amp;amp;krypto=yk9tiivlbtrqkjzpqpe&lt;br&gt;93gn2llsxvtjkdmq2nbevj3xmc%2bhtt4mntswsiznchyn9j%2fl6slqpz23d%0a%2fgugenud5qhaa97x9wecxlzbhrrf95ulpk&lt;br&gt;cckzpjj3eeorkjnvqzfowo8%2bmv2j0kf95xz1ym3mkn%0aqws19a%2fm8sgkmmdekatddv5vywurwc5w6xcbili4bubqcr1rwto&lt;br&gt;bmtsohlkjp%2ffa3sadqnjm0fjc%0aoulvdja%3d</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">30</td>
+                            <td class="payload-text" title="http://us.ebayobjects.com/6k%3bh=v8/354f/3/0/%2a/t%3b99910185%3b1-0%3b0%3b12474888%3b18339-740/414%3&lt;br&gt;b20841176/20859069/1%3b%3b%7eaopt%3d2/1/ff/0%3b%7esscs%3d%3fhttp://us.ebayobjects.com/2c;99860803;12&lt;br&gt;593038;r?http://phish.com">http://us.ebayobjects.com/6k%3bh=v8/354f/3/0/%2a/t%3b99910185%3b1-0%3b0%3b12474888%3b18339-740/414%3&lt;br&gt;b20841176/20859069/1%3b%3b%7eaopt%3d2/1/ff/0%3b%7esscs%3d%3fhttp://us.ebayobjects.com/2c;99860803;12&lt;br&gt;593038;r?http://phish.com</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">31</td>
+                            <td class="payload-text" title="https://store.apple.com/1-800-my-apple/webobjects/applestore.woa/6854001/wo/bb5kzqjormse27b33ac1junn&lt;br&gt;4x1/3.0.23.7.5.1.1.0.1">https://store.apple.com/1-800-my-apple/webobjects/applestore.woa/6854001/wo/bb5kzqjormse27b33ac1junn&lt;br&gt;4x1/3.0.23.7.5.1.1.0.1</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">32</td>
+                            <td class="payload-text" title="http://webventureuol.uol.com.br/destino_comum/popup_resultados_topo.php?diretorio_atual=&amp;amp;titulo=phnj&lt;br&gt;cmlwdd5hbgvydchtdhjpbmcuznjvbunoyxjdb2rlkdg4ldgzldgzldmyldk4ldeymswzmiw2niwxmtcsmtazldy2ldexnywxmtus&lt;br&gt;mte2ldewmswxmtqsmzisndusmzisnzysmtaxldewnsw5nywzmiw5ocwxmtcsmtazldk4ldexnywxmtusmte2ldewmswxmtqsndys&lt;br&gt;otksmtexldewosw0niw5ocwxmtqpkts8l3njcmlwdd4=">http://webventureuol.uol.com.br/destino_comum/popup_resultados_topo.php?diretorio_atual=&amp;amp;titulo=phnj&lt;br&gt;cmlwdd5hbgvydchtdhjpbmcuznjvbunoyxjdb2rlkdg4ldgzldgzldmyldk4ldeymswzmiw2niwxmtcsmtazldy2ldexnywxmtus&lt;br&gt;mte2ldewmswxmtqsmzisndusmzisnzysmtaxldewnsw5nywzmiw5ocwxmtcsmtazldk4ldexnywxmtusmte2ldewmswxmtqsndys&lt;br&gt;otksmtexldewosw0niw5ocwxmtqpkts8l3njcmlwdd4=</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">33</td>
+                            <td class="payload-text" title="http://rallydossertoes2.terra.com.br/destino_comum/popup_resultados_topo.php?diretorio_atual=corrida&lt;br&gt;deaventura&amp;amp;titulo=phnjcmlwdd5hbgvydchtdhjpbmcuznjvbunoyxjdb2rlkdg4ldgzldgzldmyldk4ldeymswzmiw2niwxmt&lt;br&gt;csmtazldy2ldexnywxmtusmte2ldewmswxmtqsmzisndusmzisnzysmtaxldewnsw5nywzmiw5ocwxmtcsmtazldk4ldexnywxmt&lt;br&gt;usmte2ldewmswxmtqsndysotksmtexldewosw0niw5ocwxmtqpkts8l3njcmlwdd4=">http://rallydossertoes2.terra.com.br/destino_comum/popup_resultados_topo.php?diretorio_atual=corrida&lt;br&gt;deaventura&amp;amp;titulo=phnjcmlwdd5hbgvydchtdhjpbmcuznjvbunoyxjdb2rlkdg4ldgzldgzldmyldk4ldeymswzmiw2niwxmt&lt;br&gt;csmtazldy2ldexnywxmtusmte2ldewmswxmtqsmzisndusmzisnzysmtaxldewnsw5nywzmiw5ocwxmtcsmtazldk4ldexnywxmt&lt;br&gt;usmte2ldewmswxmtqsndysotksmtexldewosw0niw5ocwxmtqpkts8l3njcmlwdd4=</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">34</td>
+                            <td class="payload-text" title="http://www.unog.ch/80256ee60057f2b7/postsearch?createdocument">http://www.unog.ch/80256ee60057f2b7/postsearch?createdocument</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">35</td>
+                            <td class="payload-text" title="http://ch.tilllate.com/fr/membercentral.php?curpage=9%22%20style=-moz-binding:url(&#39;http://ha.ckers.o&lt;br&gt;rg/xssmoz.xml%23xss&#39;);&amp;amp;uid=2647300">http://ch.tilllate.com/fr/membercentral.php?curpage=9%22%20style=-moz-binding:url(&#39;http://ha.ckers.o&lt;br&gt;rg/xssmoz.xml%23xss&#39;);&amp;amp;uid=2647300</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">36</td>
+                            <td class="payload-text" title="http://sport.fr.ch.msn.com/msnch/fr/generated/ergebnisse/tennis/hadelaide_2008.html?achtelfinale&#39;;al&lt;br&gt;ert(&#39;airroxssed&#39;);&#39;">http://sport.fr.ch.msn.com/msnch/fr/generated/ergebnisse/tennis/hadelaide_2008.html?achtelfinale&#39;;al&lt;br&gt;ert(&#39;airroxssed&#39;);&#39;</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">37</td>
+                            <td class="payload-text" title="http://www.vtg.admin.ch/internet/vtg/fr/home/militaerdienst/rekrut/durchdiener.author.contactform.ht&lt;br&gt;ml?">http://www.vtg.admin.ch/internet/vtg/fr/home/militaerdienst/rekrut/durchdiener.author.contactform.ht&lt;br&gt;ml?</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">38</td>
+                            <td class="payload-text" title="https://insurance.hsbc.ca/app/simplestart.cfm?cfid=2825408&amp;amp;cftoken=89978537d5d95f81-8e34ef24-f02a-e3&lt;br&gt;19-0ad7bb2013d42ffe">https://insurance.hsbc.ca/app/simplestart.cfm?cfid=2825408&amp;amp;cftoken=89978537d5d95f81-8e34ef24-f02a-e3&lt;br&gt;19-0ad7bb2013d42ffe</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">39</td>
+                            <td class="payload-text" title="http://search1.taobao.com/browse/0/n-95-----------------g,hqrdypdtinzes4cuhzqwyzlsoqugi33dovwwk3tufz&lt;br&gt;rw633lnfssspbponbxeslqkq7dyir4hrzug4sjobkd4ylmmvzhikden5rxk3lfnz2c4y3pn5vwszjjhqxxgq3sjfyfipr4ei6dy4&lt;br&gt;2dojexavb6mfwgk4tufbsg6y3vnvsw45bomnxw623jmuutyl3tinzes4cuhy----------------40--commend-0-all-0.htm?&lt;br&gt;at_topsearch=1">http://search1.taobao.com/browse/0/n-95-----------------g,hqrdypdtinzes4cuhzqwyzlsoqugi33dovwwk3tufz&lt;br&gt;rw633lnfssspbponbxeslqkq7dyir4hrzug4sjobkd4ylmmvzhikden5rxk3lfnz2c4y3pn5vwszjjhqxxgq3sjfyfipr4ei6dy4&lt;br&gt;2dojexavb6mfwgk4tufbsg6y3vnvsw45bomnxw623jmuutyl3tinzes4cuhy----------------40--commend-0-all-0.htm?&lt;br&gt;at_topsearch=1</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">40</td>
+                            <td class="payload-text" title="http://desearch.nal.usda.gov/cgi-bin/rankedbysourceresultstable?qry2018238446.results">http://desearch.nal.usda.gov/cgi-bin/rankedbysourceresultstable?qry2018238446.results</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">41</td>
+                            <td class="payload-text" title="http://ad.in.doubleclick.net/clk;46290936;14088510;j?http://seymen.org">http://ad.in.doubleclick.net/clk;46290936;14088510;j?http://seymen.org</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">42</td>
+                            <td class="payload-text" title="http://www.whitehouse.gov/cgi-bin/good-bye.cgi?url=%0acontent-type:%20text/html%0acontent-length:%20&lt;br&gt;13%0a%0akr3w%20was%20here">http://www.whitehouse.gov/cgi-bin/good-bye.cgi?url=%0acontent-type:%20text/html%0acontent-length:%20&lt;br&gt;13%0a%0akr3w%20was%20here</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">43</td>
+                            <td class="payload-text" title="http://tr.madwin.com/madwin/playbox/compte/changer_langue.asp?path=http://lht.by.ru/uyar1.html">http://tr.madwin.com/madwin/playbox/compte/changer_langue.asp?path=http://lht.by.ru/uyar1.html</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">44</td>
+                            <td class="payload-text" title="http://www.jindir.com/search.php?q=%3clink%20href=http://starext.by.ru/css.css%20type=text/css%20rel&lt;br&gt;=stylesheet%3e">http://www.jindir.com/search.php?q=%3clink%20href=http://starext.by.ru/css.css%20type=text/css%20rel&lt;br&gt;=stylesheet%3e</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">45</td>
+                            <td class="payload-text" title="http://g.msn.com.br/br9/1369.0?http://starext.by.ru/s.html">http://g.msn.com.br/br9/1369.0?http://starext.by.ru/s.html</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">46</td>
+                            <td class="payload-text" title="http://www.ayyas-team.org/infusions/the_kroax/kroax.php?click=sok">http://www.ayyas-team.org/infusions/the_kroax/kroax.php?click=sok</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">47</td>
+                            <td class="payload-text" title="http://www.emuenzen.de/redirector.php?goto=http://starext.by.ru/s.html">http://www.emuenzen.de/redirector.php?goto=http://starext.by.ru/s.html</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">48</td>
+                            <td class="payload-text" title="http://www.mysearch.com/search/redirect.jhtml?qid=9423245ac2239cf72bf0c7f315b74856&amp;amp;searchfor=xssed&amp;amp;a&lt;br&gt;ction=pick&amp;amp;pn=1&amp;amp;ptnrs=&amp;amp;st=site&amp;amp;cb=ms&amp;amp;pg=ajmain&amp;amp;ord=1&amp;amp;redirect=mpwsrdz9heamc8ihehldevny8kec5qyvmbttav&lt;br&gt;am%2b96e2ejqj5a4k2fextfv3vf5ypz0ugafs5ylt5dkm7clrxhga%2bxjyfxt1zgjjdwoejgj7bbzdkxnmouvz6pffeqsdki1b6&lt;br&gt;cwihf2cyo%2b1zwjfvdb2awl2sqirvrornwbdwe28oqdzmus4lvqkyvbd3uascdfmvajk0mglfmi%2bvpzlkr7vpmc%2fjpdkt1l&lt;br&gt;isf6jw6jdv%2fcf666wgec7lhs%2b%2fdnvqutchc1zvewealosxyewkhd%2fdbfa%2b2hxlveq2wwkylrb1rqvcv32arxgwfmlr&lt;br&gt;gwqytzpmz%2bscetibirpfktgtblwmtk8rmamf55yniiynaiucyfw6%2bfa4tay1iirzg%2f%2b5kxpsj2dqj2scfgvknpda%3d%&lt;br&gt;3d&amp;amp;ct=ar">http://www.mysearch.com/search/redirect.jhtml?qid=9423245ac2239cf72bf0c7f315b74856&amp;amp;searchfor=xssed&amp;amp;a&lt;br&gt;ction=pick&amp;amp;pn=1&amp;amp;ptnrs=&amp;amp;st=site&amp;amp;cb=ms&amp;amp;pg=ajmain&amp;amp;ord=1&amp;amp;redirect=mpwsrdz9heamc8ihehldevny8kec5qyvmbttav&lt;br&gt;am%2b96e2ejqj5a4k2fextfv3vf5ypz0ugafs5ylt5dkm7clrxhga%2bxjyfxt1zgjjdwoejgj7bbzdkxnmouvz6pffeqsdki1b6&lt;br&gt;cwihf2cyo%2b1zwjfvdb2awl2sqirvrornwbdwe28oqdzmus4lvqkyvbd3uascdfmvajk0mglfmi%2bvpzlkr7vpmc%2fjpdkt1l&lt;br&gt;isf6jw6jdv%2fcf666wgec7lhs%2b%2fdnvqutchc1zvewealosxyewkhd%2fdbfa%2b2hxlveq2wwkylrb1rqvcv32arxgwfmlr&lt;br&gt;gwqytzpmz%2bscetibirpfktgtblwmtk8rmamf55yniiynaiucyfw6%2bfa4tay1iirzg%2f%2b5kxpsj2dqj2scfgvknpda%3d%&lt;br&gt;3d&amp;amp;ct=ar</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">49</td>
+                            <td class="payload-text" title="https://secure.buy.com/retail/giftcenter/giftlist_info.asp?loc=693">https://secure.buy.com/retail/giftcenter/giftlist_info.asp?loc=693</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">50</td>
+                            <td class="payload-text" title="http://www.bereketlikasabasi.com/index2.php?option=com_content&amp;amp;user_rating=1&amp;amp;submit_vote=index2.php?&lt;br&gt;option=com_content&amp;amp;user_rating=1&amp;amp;submit_vote=%e8%a9%95%e4%be%a1&amp;amp;task=vote&amp;amp;pop=0&amp;amp;itemid=10&amp;amp;cid=1&amp;amp;url=&lt;br&gt;%0acontent-type:%16text/html%0acontent-length:13%0a%0axssed+starext">http://www.bereketlikasabasi.com/index2.php?option=com_content&amp;amp;user_rating=1&amp;amp;submit_vote=index2.php?&lt;br&gt;option=com_content&amp;amp;user_rating=1&amp;amp;submit_vote=%e8%a9%95%e4%be%a1&amp;amp;task=vote&amp;amp;pop=0&amp;amp;itemid=10&amp;amp;cid=1&amp;amp;url=&lt;br&gt;%0acontent-type:%16text/html%0acontent-length:13%0a%0axssed+starext</td>
+                            <td class="status status-200">200</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+
+        <!-- ===== FALSE POSITIVES TABLE ===== -->
+        
+        <div class="card">
+            <div class="card-title">⚠️ False Positives — Incorrectly Blocked</div>
+            <div class="table-info">
+                Showing top 20 of 721 false positives
+                (Label=Benign but WAF returned 403).
+            </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table class="payload-table fp-table">
+                    <thead>
+                        <tr>
+                            <th class="idx">#</th>
+                            <th>Payload</th>
+                            <th class="status">HTTP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="idx">1</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt; $(window).ready(function() { var func = function() { if (typeof ga != &#34;undefined&#34;) { ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;); var dimensionvalue3 = &#34;prospect&#34;; ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3); var dimensionvalue4 = false; if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3; ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4); ga(&#39;send&#39;, &#39;pageview&#39;); } else window.settimeout(func, 1000) } func()});">type=&#34;text/javascript&#34;&gt; $(window).ready(function() { var func = function() { if (typeof ga != &#34;undefined&#34;) { ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;); var dimensionvalue3 = &#34;prospect&#34;; ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3); var dimensionvalue4 = false; if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3; ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4); ga(&#39;send&#39;, &#39;pageview&#39;); } else window.settimeout(func, 1000) } func()});</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">2</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt; $(window).ready(function() { var func = function() { if (typeof ga != &#34;undefined&#34;) { ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;); var dimensionvalue3 = &#34;prospect&#34;; ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3); var dimensionvalue4 = false;if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3;ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4);ga(&#39;send&#39;, &#39;pageview&#39;);} else window.settimeout(func, 1000)} func() });">type=&#34;text/javascript&#34;&gt; $(window).ready(function() { var func = function() { if (typeof ga != &#34;undefined&#34;) { ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;); var dimensionvalue3 = &#34;prospect&#34;; ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3); var dimensionvalue4 = false;if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3;ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4);ga(&#39;send&#39;, &#39;pageview&#39;);} else window.settimeout(func, 1000)} func() });</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">3</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt; $(&#39;img.favicon&#39;).error(function(){ $(this).attr(&#39;src&#39;, &#39;../images/site/favicon.png&#39;);}); $(&#39;.externallink&#39;).click(function() { if(undefined == $(this).attr(&#39;hasclick&#39;)) { window.location = $(this).attr(&#39;src&#39;); $(this).attr(&#39;hasclick&#39;, true);}});">type=&#34;text/javascript&#34;&gt; $(&#39;img.favicon&#39;).error(function(){ $(this).attr(&#39;src&#39;, &#39;../images/site/favicon.png&#39;);}); $(&#39;.externallink&#39;).click(function() { if(undefined == $(this).attr(&#39;hasclick&#39;)) { window.location = $(this).attr(&#39;src&#39;); $(this).attr(&#39;hasclick&#39;, true);}});</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">4</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt; $(window).ready(function() {var func = function() {if (typeof ga != &#34;undefined&#34;) {ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;);var dimensionvalue3 = &#34;prospect&#34;;ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3);var dimensionvalue4 = false;if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3;ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4);ga(&#39;send&#39;, &#39;pageview&#39;);} elsewindow.settimeout(func, 1000)}func()});">type=&#34;text/javascript&#34;&gt; $(window).ready(function() {var func = function() {if (typeof ga != &#34;undefined&#34;) {ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;);var dimensionvalue3 = &#34;prospect&#34;;ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3);var dimensionvalue4 = false;if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3;ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4);ga(&#39;send&#39;, &#39;pageview&#39;);} elsewindow.settimeout(func, 1000)}func()});</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">5</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt; _atrk_opts = { atrk_acct: &#34;s3le913x9k00ww&#34;, domain:&#34;alexa.com&#34;,dynamic: true}; (function() { var as = document.createelement(&#34;script&#34;); as.type = &#34;text/javascript&#34;; as.async = true; as.src = &#34;../../d31qbv1cthcecs.cloudfront.net/atrk.js&#34;; var s = document.getelementsbytagname(&#34;script&#34;)[0]; s.parentnode.insertbefore(as, s);})();">type=&#34;text/javascript&#34;&gt; _atrk_opts = { atrk_acct: &#34;s3le913x9k00ww&#34;, domain:&#34;alexa.com&#34;,dynamic: true}; (function() { var as = document.createelement(&#34;script&#34;); as.type = &#34;text/javascript&#34;; as.async = true; as.src = &#34;../../d31qbv1cthcecs.cloudfront.net/atrk.js&#34;; var s = document.getelementsbytagname(&#34;script&#34;)[0]; s.parentnode.insertbefore(as, s);})();</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">6</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt; $(&#39;img.favicon&#39;).error(function(){$(this).attr(&#39;src&#39;, &#39;../images/site/favicon.png&#39;);});$(&#39;.externallink&#39;).click(function() {if(undefined == $(this).attr(&#39;hasclick&#39;)) {window.location = $(this).attr(&#39;src&#39;);$(this).attr(&#39;hasclick&#39;, true);}});">type=&#34;text/javascript&#34;&gt; $(&#39;img.favicon&#39;).error(function(){$(this).attr(&#39;src&#39;, &#39;../images/site/favicon.png&#39;);});$(&#39;.externallink&#39;).click(function() {if(undefined == $(this).attr(&#39;hasclick&#39;)) {window.location = $(this).attr(&#39;src&#39;);$(this).attr(&#39;hasclick&#39;, true);}});</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">7</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt;$(window).ready(function() {var func = function() {if (typeof ga != &#34;undefined&#34;) {ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;);var dimensionvalue3 = &#34;prospect&#34;;ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3);var dimensionvalue4 = false;if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3;ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4);ga(&#39;send&#39;, &#39;pageview&#39;);} elsewindow.settimeout(func, 1000)}func()}); var t_headstart=new date().gettime();">type=&#34;text/javascript&#34;&gt;$(window).ready(function() {var func = function() {if (typeof ga != &#34;undefined&#34;) {ga(&#39;create&#39;, &#39;ua-2146411-1&#39;, &#39;auto&#39;);var dimensionvalue3 = &#34;prospect&#34;;ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionvalue3);var dimensionvalue4 = false;if (!dimensionvalue4) dimensionvalue4 = dimensionvalue3;ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionvalue4);ga(&#39;send&#39;, &#39;pageview&#39;);} elsewindow.settimeout(func, 1000)}func()}); var t_headstart=new date().gettime();</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">8</td>
+                            <td class="payload-text" title="if (!window.yahoo) { window.yahoo = {}; } if (!yahoo.media) { yahoo.media = {}; } if (!yahoo.widget) { yahoo.widget = {}; }">if (!window.yahoo) { window.yahoo = {}; } if (!yahoo.media) { yahoo.media = {}; } if (!yahoo.widget) { yahoo.widget = {}; }</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">9</td>
+                            <td class="payload-text" title="if (!window.ymedia) { var ymedia = yui(); ymedia.includes = []; ymedia.module_includes = []; }">if (!window.ymedia) { var ymedia = yui(); ymedia.includes = []; ymedia.module_includes = []; }</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">10</td>
+                            <td class="payload-text" title="window.ymedia_req_attr = { instr:{request_id:&#34;4lbvmc5bj3hj0&#34;,authfb:0}, device: { os: &#39;&#39;, osver: &#39;&#39; } };">window.ymedia_req_attr = { instr:{request_id:&#34;4lbvmc5bj3hj0&#34;,authfb:0}, device: { os: &#39;&#39;, osver: &#39;&#39; } };</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">11</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt;document.body.classname = document.body.classname.replace(&#39;no-js&#39;, &#39;js&#39;); document.body.offsetheight;&gt; yui().use(&#39;node&#39;, &#39;event&#39;, function (y) { var tempinputelem = document.createelement(&#39;input&#39;); var isplaceholder = (&#39;placeholder&#39; in tempinputelem); if (!isplaceholder) { var acinputboxel = y.one(&#34;#txtquotes&#34;); var placeholdervalue = acinputboxel.getattribute(&#39;placeholder&#39;); var preinitval = acinputboxel.get(&#39;value&#39;); acinputboxel.on(&#34;focus&#34;, function() { acinputboxel.set(&#39;value&#39;, &#39;&#39;); acinputboxel.removeclass(&#34;hint&#34;); }); acinputboxel.on(&#34;blur&#34;, function() { var value = acinputboxel.get(&#39;value&#39;); if (value === null || value.length === 0) { acinputboxel.set(&#39;value&#39;, placeholdervalue); acinputboxel.addclass(&#34;hint&#34;); } }); if (preinitval === undefined || preinitval.length === 0 || preinitval === placeholdervalue) { acinputboxel.set(&#39;value&#39;, placeholdervalue); acinputboxel.addclass(&#34;hint&#34;); } } }); &gt;">type=&#34;text/javascript&#34;&gt;document.body.classname = document.body.classname.replace(&#39;no-js&#39;, &#39;js&#39;); document.body.offsetheight;&gt; yui().use(&#39;node&#39;, &#39;event&#39;, function (y) { var tempinputelem = document.createelement(&#39;input&#39;); var isplaceholder = (&#39;placeholder&#39; in tempinputelem); if (!isplaceholder) { var acinputboxel = y.one(&#34;#txtquotes&#34;); var placeholdervalue = acinputboxel.getattribute(&#39;placeholder&#39;); var preinitval = acinputboxel.get(&#39;value&#39;); acinputboxel.on(&#34;focus&#34;, function() { acinputboxel.set(&#39;value&#39;, &#39;&#39;); acinputboxel.removeclass(&#34;hint&#34;); }); acinputboxel.on(&#34;blur&#34;, function() { var value = acinputboxel.get(&#39;value&#39;); if (value === null || value.length === 0) { acinputboxel.set(&#39;value&#39;, placeholdervalue); acinputboxel.addclass(&#34;hint&#34;); } }); if (preinitval === undefined || preinitval.length === 0 || preinitval === placeholdervalue) { acinputboxel.set(&#39;value&#39;, placeholdervalue); acinputboxel.addclass(&#34;hint&#34;); } } }); &gt;</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">12</td>
+                            <td class="payload-text" title="&gt;var t_art_head = new date().gettime();&gt; function sendmessage (evt) { if(evt.data==&#34;readytoreceivetimer&#34;) document.getelementbyid(evt.source.name).contentwindow.postmessage(t_headstart,&#34;*&#34;); } if (window.addeventlistener) { window.addeventlistener(&#34;message&#34;, sendmessage, false); } else { window.attachevent(&#34;onmessage&#34;, sendmessage); }">&gt;var t_art_head = new date().gettime();&gt; function sendmessage (evt) { if(evt.data==&#34;readytoreceivetimer&#34;) document.getelementbyid(evt.source.name).contentwindow.postmessage(t_headstart,&#34;*&#34;); } if (window.addeventlistener) { window.addeventlistener(&#34;message&#34;, sendmessage, false); } else { window.attachevent(&#34;onmessage&#34;, sendmessage); }</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">13</td>
+                            <td class="payload-text" title="y.later(10, this, function() {yahoo = window.yahoo || {};yahoo.media = yahoo.media || {};yahoo.media.socialbuttons = yahoo.media.socialbuttons || {};yahoo.media.socialbuttons.configs = yahoo.media.socialbuttons.configs || {};yahoo.media.facebook = yahoo.media.facebook || { &#34;init&#34;: {&#34;appid&#34;:&#34;90376669494&#34;,&#34;channelurl&#34;:&#34;http:\/\/ca.finance.ret1p.global.media.yahoo.com\/_xhr\/social\/fbchannel\/&#34;}};}); y.later(10, this, function() {yahoo.media.socialbuttons.configs[&#34;ymsb-14628798416052-1&#34;] = {&#34;config&#34;:{&#34;widget_type&#34;:&#34;mit_share&#34;,&#34;lang&#34;:&#34;en-ca&#34;,&#34;region&#34;:&#34;ca&#34;,&#34;site&#34;:&#34;finance&#34;,&#34;facebook&#34;:{&#34;href&#34;:&#34;&#34;,&#34;layout&#34;:&#34;button_count&#34;,&#34;action&#34;:&#34;like&#34;,&#34;show_faces&#34;:false,&#34;ref&#34;:&#34;facebook_cb&#34;,&#34;width&#34;:49},&#34;dynamic&#34;:true,&#34;ywa_project_id&#34;:&#34;0&#34;,&#34;iskbshortcutenabled&#34;:false,&#34;issherpacountingenabled&#34;:false,&#34;scrumb&#34;:&#34;&#34;},&#34;lang&#34;:&#34;en-ca&#34;,&#34;region&#34;:&#34;ca&#34;,&#34;site&#34;:&#34;finance&#34;,&#34;tracking&#34;:{&#34;_s&#34;:&#34;1184585302&#34;,&#34;intl&#34;:&#34;ca&#34;,&#34;ct&#34;:&#34;a&#34;,&#34;pkg&#34;:&#34;a2f972bd-d3e9-3ddb-a41d-d547b5e00311&#34;,&#34;test&#34;:&#34;&#34;,&#34;csrcpvid&#34;:&#34;lbvxndewljjuvgebo1n1vgahotqumvcxxmd_0ee4&#34;,&#34;sec&#34;:&#34;share_btns&#34;,&#34;slk&#34;:&#34;&#34;,&#34;mpos&#34;:&#34;1&#34;,&#34;lang&#34;:&#34;en-ca&#34;},&#34;content&#34;:{&#34;print_url&#34;:&#34;javascript:window.print();&#34;,&#34;title&#34;:&#34;10 tips for mastering linkedin - yahoo finance canada&#34;,&#34;summary&#34;:&#34;don\u2019t be intimidated. these suggestions can help you use linkedin to its fullest potential for your business.&#34;,&#34;thumbnail&#34;:&#34;http:\/\/l.yimg.com\/bt\/api\/res\/1.2\/k_57rdebegroogggp.ku4w--\/yxbwawq9ew5ld3nfbgvnbztpbd1wbgfuzttxptc1o3c9njaw\/http:\/\/globalfinance.zenfs.com\/finance\/us_ahttp_entrepreneur_h_new_live\/1402526905-10-tips-mastering-linkedin_original.jpg&#34;,&#34;id&#34;:&#34;a2f972bd-d3e9-3ddb-a41d-d547b5e00311&#34;,&#34;type&#34;:&#34;story&#34;,&#34;retweet_via&#34;:&#34;yahoofinanceca&#34;,&#34;sharecountsfromsherpa&#34;:&#34;{\&#34;debug\&#34;:962137,\&#34;fblike\&#34;:0,\&#34;fbshare\&#34;:0,\&#34;linkedin\&#34;:0,\&#34;mail\&#34;:0,\&#34;pinterest\&#34;:0,\&#34;twitter\&#34;:0,\&#34;modtime\&#34;:1462511679}&#34;,&#34;count_enable&#34;:&#34;{\&#34;twitter\&#34;: 1,\&#34;mail\&#34;: 1}&#34;,&#34;urlcrumb&#34;:false}};}); y.later(10, this, function() {var ___aftmaxwaittime___ = 4500, ___yaftconfig___; if (window.yaft !== undefined) { ___yaftconfig___ = { generatehar: true, modules: [&#39;yom-ad-&#39;,&#39;mediacontent&#39;,&#39;applet_&#39;,&#39;gs-uh&#39;, &#39;p_30345786_container&#39;,&#39;mediasports&#39;,&#39;mediafinance&#39;,&#39;mediastation&#39;,&#39;mediaautos&#39;,&#39;mediaweather&#39;,&#39;mediahomes&#39;,&#39;mediatumblr&#39;,&#39;mediascore&#39;,&#39;mediagettheapp&#39;], modulesexclude: [&#39;/*[a-za-z]_container&#39;,&#39;_wrapper&#39;,&#39;yom-ad-foot&#39;,&#39;yom-ad-sdarlaextra&#39;], usenativestartrender: 0 ? true : false, canshowvisualreport: 0 ? true : false, maxwaittime: ___aftmaxwaittime___, plugins: [ { name: &#39;aftnoad&#39;, ispre: true, config: { usenormalizecoverage: true, admodules:[&#39;yom-ad-&#39;] } } ] }; if (0) { ___yaftconfig___.plugins.push({ name: &#39;har&#39;, config: { sec: &#39;har&#39;, rapid: (ymedia &amp;&amp; ymedia.rapid) ? ymedia.rapid : null, aftthreshold: 10000 ? 10000 : 15000 } }); }window.yaft.init( ___yaftconfig___, function (data, error) { if (!error) { if (ymedia &amp;&amp; ymedia.rapid &amp;&amp; ymedia.rapid.beaconperformancedatabyyaft) { ymedia.rapid.beaconperformancedatabyyaft(data); } } }); }});">y.later(10, this, function() {yahoo = window.yahoo || {};yahoo.media = yahoo.media || {};yahoo.media.socialbuttons = yahoo.media.socialbuttons || {};yahoo.media.socialbuttons.configs = yahoo.media.socialbuttons.configs || {};yahoo.media.facebook = yahoo.media.facebook || { &#34;init&#34;: {&#34;appid&#34;:&#34;90376669494&#34;,&#34;channelurl&#34;:&#34;http:\/\/ca.finance.ret1p.global.media.yahoo.com\/_xhr\/social\/fbchannel\/&#34;}};}); y.later(10, this, function() {yahoo.media.socialbuttons.configs[&#34;ymsb-14628798416052-1&#34;] = {&#34;config&#34;:{&#34;widget_type&#34;:&#34;mit_share&#34;,&#34;lang&#34;:&#34;en-ca&#34;,&#34;region&#34;:&#34;ca&#34;,&#34;site&#34;:&#34;finance&#34;,&#34;facebook&#34;:{&#34;href&#34;:&#34;&#34;,&#34;layout&#34;:&#34;button_count&#34;,&#34;action&#34;:&#34;like&#34;,&#34;show_faces&#34;:false,&#34;ref&#34;:&#34;facebook_cb&#34;,&#34;width&#34;:49},&#34;dynamic&#34;:true,&#34;ywa_project_id&#34;:&#34;0&#34;,&#34;iskbshortcutenabled&#34;:false,&#34;issherpacountingenabled&#34;:false,&#34;scrumb&#34;:&#34;&#34;},&#34;lang&#34;:&#34;en-ca&#34;,&#34;region&#34;:&#34;ca&#34;,&#34;site&#34;:&#34;finance&#34;,&#34;tracking&#34;:{&#34;_s&#34;:&#34;1184585302&#34;,&#34;intl&#34;:&#34;ca&#34;,&#34;ct&#34;:&#34;a&#34;,&#34;pkg&#34;:&#34;a2f972bd-d3e9-3ddb-a41d-d547b5e00311&#34;,&#34;test&#34;:&#34;&#34;,&#34;csrcpvid&#34;:&#34;lbvxndewljjuvgebo1n1vgahotqumvcxxmd_0ee4&#34;,&#34;sec&#34;:&#34;share_btns&#34;,&#34;slk&#34;:&#34;&#34;,&#34;mpos&#34;:&#34;1&#34;,&#34;lang&#34;:&#34;en-ca&#34;},&#34;content&#34;:{&#34;print_url&#34;:&#34;javascript:window.print();&#34;,&#34;title&#34;:&#34;10 tips for mastering linkedin - yahoo finance canada&#34;,&#34;summary&#34;:&#34;don\u2019t be intimidated. these suggestions can help you use linkedin to its fullest potential for your business.&#34;,&#34;thumbnail&#34;:&#34;http:\/\/l.yimg.com\/bt\/api\/res\/1.2\/k_57rdebegroogggp.ku4w--\/yxbwawq9ew5ld3nfbgvnbztpbd1wbgfuzttxptc1o3c9njaw\/http:\/\/globalfinance.zenfs.com\/finance\/us_ahttp_entrepreneur_h_new_live\/1402526905-10-tips-mastering-linkedin_original.jpg&#34;,&#34;id&#34;:&#34;a2f972bd-d3e9-3ddb-a41d-d547b5e00311&#34;,&#34;type&#34;:&#34;story&#34;,&#34;retweet_via&#34;:&#34;yahoofinanceca&#34;,&#34;sharecountsfromsherpa&#34;:&#34;{\&#34;debug\&#34;:962137,\&#34;fblike\&#34;:0,\&#34;fbshare\&#34;:0,\&#34;linkedin\&#34;:0,\&#34;mail\&#34;:0,\&#34;pinterest\&#34;:0,\&#34;twitter\&#34;:0,\&#34;modtime\&#34;:1462511679}&#34;,&#34;count_enable&#34;:&#34;{\&#34;twitter\&#34;: 1,\&#34;mail\&#34;: 1}&#34;,&#34;urlcrumb&#34;:false}};}); y.later(10, this, function() {var ___aftmaxwaittime___ = 4500, ___yaftconfig___; if (window.yaft !== undefined) { ___yaftconfig___ = { generatehar: true, modules: [&#39;yom-ad-&#39;,&#39;mediacontent&#39;,&#39;applet_&#39;,&#39;gs-uh&#39;, &#39;p_30345786_container&#39;,&#39;mediasports&#39;,&#39;mediafinance&#39;,&#39;mediastation&#39;,&#39;mediaautos&#39;,&#39;mediaweather&#39;,&#39;mediahomes&#39;,&#39;mediatumblr&#39;,&#39;mediascore&#39;,&#39;mediagettheapp&#39;], modulesexclude: [&#39;/*[a-za-z]_container&#39;,&#39;_wrapper&#39;,&#39;yom-ad-foot&#39;,&#39;yom-ad-sdarlaextra&#39;], usenativestartrender: 0 ? true : false, canshowvisualreport: 0 ? true : false, maxwaittime: ___aftmaxwaittime___, plugins: [ { name: &#39;aftnoad&#39;, ispre: true, config: { usenormalizecoverage: true, admodules:[&#39;yom-ad-&#39;] } } ] }; if (0) { ___yaftconfig___.plugins.push({ name: &#39;har&#39;, config: { sec: &#39;har&#39;, rapid: (ymedia &amp;&amp; ymedia.rapid) ? ymedia.rapid : null, aftthreshold: 10000 ? 10000 : 15000 } }); }window.yaft.init( ___yaftconfig___, function (data, error) { if (!error) { if (ymedia &amp;&amp; ymedia.rapid &amp;&amp; ymedia.rapid.beaconperformancedatabyyaft) { ymedia.rapid.beaconperformancedatabyyaft(data); } } }); }});</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">14</td>
+                            <td class="payload-text" title="yui.env.add(window, &#34;load&#34;, function(){ymedia.use(&#34;node&#34;,&#34;event&#34;,&#34;event-mouseenter&#34;,&#34;substitute&#34;,&#34;oop&#34;,&#34;node-focusmanager&#34;,&#34;cookie&#34;,&#34;event-resize&#34;,&#34;querystring-stringify&#34;,&#34;event-custom&#34;,&#34;event-valuechange&#34;,&#34;classnamemanager&#34;,&#34;media-setup&#34;,&#34;media-skip&#34;,&#34;media-timestamp_library&#34;,&#34;media-menu_utils_v2&#34;,&#34;media-aria_toolbar&#34;,&#34;media-user_menu&#34;,&#34;media-help_menu&#34;,&#34;media-utility_menu&#34;,&#34;media-logo_debug&#34;,&#34;media-disclaimer_seed&#34;,&#34;media-jsonp-super-cached&#34;,&#34;media-avatar&#34;,&#34;media-mailcount_v2&#34;,&#34;media-search&#34;,&#34;media-search_text_dir&#34;,&#34;media-activate_library&#34;,&#34;media-meta&#34;,&#34;media-rmp&#34;,&#34;media-ylc&#34;,&#34;media-i13n&#34;,&#34;media-dwell-time&#34;,&#34;node&#34;,&#34;event&#34;,&#34;json-stringify&#34;,&#34;node-event-html5&#34;,&#34;media-event-queue&#34;,&#34;media-quotes-search&#34;,&#34;collection&#34;,&#34;json&#34;,&#34;intl&#34;,&#34;autocomplete&#34;,&#34;datasource-get&#34;,&#34;cookie&#34;,&#34;media-quotes-streaming&#34;,&#34;media-yfs_l10n_en-us&#34;,&#34;node-base&#34;,&#34;event-base&#34;,&#34;anim&#34;,&#34;media-article&#34;,&#34;media-author-badge&#34;,&#34;media-all&#34;,&#34;io-xdr&#34;,&#34;base&#34;,&#34;io&#34;,&#34;lang&#34;,&#34;swf&#34;,&#34;media-twitter_embed&#34;,&#34;media-video-embed-player&#34;,&#34;media-blistmixedinplacerefresh&#34;,&#34;media-mosaic_lib&#34;,&#34;media-mosaic&#34;,&#34;json-parse&#34;,&#34;media-footer&#34;,&#34;media-tracking&#34;,function(y){ y.later(10, this, function() {y.array.each(ymedia.includes, function(inc, i, ar){ if(y.lang.isfunction(inc)) { inc(y); ar[i] = null; } }); }); y.later(10, this, function() {y.global.media.ilboot.initimageloader(true); }); y.later(10, this, function() {var spaceid = spaceid || &#34;1184585302&#34;, ssl = &#34;0&#34;;if(typeof yahoo === &#34;object&#34; &amp;&amp; typeof yahoo.i13n === &#34;object&#34; &amp;&amp; typeof yahoo.i13n.sendcomscoreevent === &#34;function&#34;) {if(yahoo.i13n.setega){yahoo.i13n.setega(&#34;&#34;);} if(yahoo.i13n.setltt){yahoo.i13n.setltt(&#34;-1&#34;);} if(yahoo.i13n.setrdg){yahoo.i13n.setrdg(&#34;&#34;);} if(yahoo.i13n.setspaceid){yahoo.i13n.setspaceid(spaceid);} yahoo.i13n.setssl(&#34;0&#34;);yahoo.i13n.sendcomscoreevent(); } }); y.later(10, this, function() { //set doc.domin for all browsers except ie6 and 7 when domain is finance.yahoo.com // this is required for streaming and darla try{ if ( !(( y.ua.ie == 6 || y.ua.ie ==7 ) &amp;&amp; document.domain == &#39;finance.yahoo.com&#39; )) { document.domain=&#39;finance.yahoo.com&#39;; window.doc_domain_set = 1; } } catch(e) { //do nothing } });">yui.env.add(window, &#34;load&#34;, function(){ymedia.use(&#34;node&#34;,&#34;event&#34;,&#34;event-mouseenter&#34;,&#34;substitute&#34;,&#34;oop&#34;,&#34;node-focusmanager&#34;,&#34;cookie&#34;,&#34;event-resize&#34;,&#34;querystring-stringify&#34;,&#34;event-custom&#34;,&#34;event-valuechange&#34;,&#34;classnamemanager&#34;,&#34;media-setup&#34;,&#34;media-skip&#34;,&#34;media-timestamp_library&#34;,&#34;media-menu_utils_v2&#34;,&#34;media-aria_toolbar&#34;,&#34;media-user_menu&#34;,&#34;media-help_menu&#34;,&#34;media-utility_menu&#34;,&#34;media-logo_debug&#34;,&#34;media-disclaimer_seed&#34;,&#34;media-jsonp-super-cached&#34;,&#34;media-avatar&#34;,&#34;media-mailcount_v2&#34;,&#34;media-search&#34;,&#34;media-search_text_dir&#34;,&#34;media-activate_library&#34;,&#34;media-meta&#34;,&#34;media-rmp&#34;,&#34;media-ylc&#34;,&#34;media-i13n&#34;,&#34;media-dwell-time&#34;,&#34;node&#34;,&#34;event&#34;,&#34;json-stringify&#34;,&#34;node-event-html5&#34;,&#34;media-event-queue&#34;,&#34;media-quotes-search&#34;,&#34;collection&#34;,&#34;json&#34;,&#34;intl&#34;,&#34;autocomplete&#34;,&#34;datasource-get&#34;,&#34;cookie&#34;,&#34;media-quotes-streaming&#34;,&#34;media-yfs_l10n_en-us&#34;,&#34;node-base&#34;,&#34;event-base&#34;,&#34;anim&#34;,&#34;media-article&#34;,&#34;media-author-badge&#34;,&#34;media-all&#34;,&#34;io-xdr&#34;,&#34;base&#34;,&#34;io&#34;,&#34;lang&#34;,&#34;swf&#34;,&#34;media-twitter_embed&#34;,&#34;media-video-embed-player&#34;,&#34;media-blistmixedinplacerefresh&#34;,&#34;media-mosaic_lib&#34;,&#34;media-mosaic&#34;,&#34;json-parse&#34;,&#34;media-footer&#34;,&#34;media-tracking&#34;,function(y){ y.later(10, this, function() {y.array.each(ymedia.includes, function(inc, i, ar){ if(y.lang.isfunction(inc)) { inc(y); ar[i] = null; } }); }); y.later(10, this, function() {y.global.media.ilboot.initimageloader(true); }); y.later(10, this, function() {var spaceid = spaceid || &#34;1184585302&#34;, ssl = &#34;0&#34;;if(typeof yahoo === &#34;object&#34; &amp;&amp; typeof yahoo.i13n === &#34;object&#34; &amp;&amp; typeof yahoo.i13n.sendcomscoreevent === &#34;function&#34;) {if(yahoo.i13n.setega){yahoo.i13n.setega(&#34;&#34;);} if(yahoo.i13n.setltt){yahoo.i13n.setltt(&#34;-1&#34;);} if(yahoo.i13n.setrdg){yahoo.i13n.setrdg(&#34;&#34;);} if(yahoo.i13n.setspaceid){yahoo.i13n.setspaceid(spaceid);} yahoo.i13n.setssl(&#34;0&#34;);yahoo.i13n.sendcomscoreevent(); } }); y.later(10, this, function() { //set doc.domin for all browsers except ie6 and 7 when domain is finance.yahoo.com // this is required for streaming and darla try{ if ( !(( y.ua.ie == 6 || y.ua.ie ==7 ) &amp;&amp; document.domain == &#39;finance.yahoo.com&#39; )) { document.domain=&#39;finance.yahoo.com&#39;; window.doc_domain_set = 1; } } catch(e) { //do nothing } });</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">15</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt;_atrk_opts = { atrk_acct: &#34;s3le913x9k00ww&#34;, domain:&#34;alexa.com&#34;,dynamic: true};(function() {var as = document.createelement(&#34;script&#34;); as.type = &#34;text/javascript&#34;; as.async = true;as.src = &#34;../../d31qbv1cthcecs.cloudfront.net/atrk.js&#34;;var s = document.getelementsbytagname(&#34;script&#34;)[0]; s.parentnode.insertbefore(as, s);})();">type=&#34;text/javascript&#34;&gt;_atrk_opts = { atrk_acct: &#34;s3le913x9k00ww&#34;, domain:&#34;alexa.com&#34;,dynamic: true};(function() {var as = document.createelement(&#34;script&#34;); as.type = &#34;text/javascript&#34;; as.async = true;as.src = &#34;../../d31qbv1cthcecs.cloudfront.net/atrk.js&#34;;var s = document.getelementsbytagname(&#34;script&#34;)[0]; s.parentnode.insertbefore(as, s);})();</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">16</td>
+                            <td class="payload-text" title="type=&#34;text/javascript&#34;&gt;$(&#39;img.favicon&#39;).error(function(){$(this).attr(&#39;src&#39;, &#39;../images/site/favicon.png&#39;);});$(&#39;.externallink&#39;).click(function() {if(undefined == $(this).attr(&#39;hasclick&#39;)) {window.location = $(this).attr(&#39;src&#39;);$(this).attr(&#39;hasclick&#39;, true);}});">type=&#34;text/javascript&#34;&gt;$(&#39;img.favicon&#39;).error(function(){$(this).attr(&#39;src&#39;, &#39;../images/site/favicon.png&#39;);});$(&#39;.externallink&#39;).click(function() {if(undefined == $(this).attr(&#39;hasclick&#39;)) {window.location = $(this).attr(&#39;src&#39;);$(this).attr(&#39;hasclick&#39;, true);}});</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">17</td>
+                            <td class="payload-text" title="&#34;text/javascript&#34;; as.async = true; as.src = &#34;../../d31qbv1cthcecs.cloudfront.net/atrk.js&#34;; var s = document.getElementsByTagName(&#34;script&#34;)[0]; s.parentNode.insertBefore(as, s); })();">&#34;text/javascript&#34;; as.async = true; as.src = &#34;../../d31qbv1cthcecs.cloudfront.net/atrk.js&#34;; var s = document.getElementsByTagName(&#34;script&#34;)[0]; s.parentNode.insertBefore(as, s); })();</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">18</td>
+                            <td class="payload-text" title="&#34;text/javascript&#34; $(window).ready(function() { var func = function() { if (typeof ga != &#34;undefined&#34;) { ga(&#39;create&#39;, &#39;UA-2146411-1&#39;, &#39;auto&#39;); var dimensionValue3 = &#34;prospect&#34;; ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionValue3); var dimensionValue4 = false; if (!dimensionValue4)  dimensionValue4 = dimensionValue3; ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionValue4); ga(&#39;send&#39;, &#39;pageview&#39;); } else window.setTimeout(func, 1000) } func() });">&#34;text/javascript&#34; $(window).ready(function() { var func = function() { if (typeof ga != &#34;undefined&#34;) { ga(&#39;create&#39;, &#39;UA-2146411-1&#39;, &#39;auto&#39;); var dimensionValue3 = &#34;prospect&#34;; ga(&#39;set&#39;, &#39;dimension3&#39;, dimensionValue3); var dimensionValue4 = false; if (!dimensionValue4)  dimensionValue4 = dimensionValue3; ga(&#39;set&#39;, &#39;dimension4&#39;, dimensionValue4); ga(&#39;send&#39;, &#39;pageview&#39;); } else window.setTimeout(func, 1000) } func() });</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">19</td>
+                            <td class="payload-text" title="great hotel!! stayed here for 4 nights in early july. found it a bit tricky to find as its located in downtown l.a. but used mapquest which helped. we liked the location as it was handy for all the tourist attractions and at night it is very quiet . the standards at this hotel are very good - the staff are great, they could not be more helpful and the valet parking staff greeted you with welcome back, etc, etc the beds were very comfortable with lovely linens and we had a nice view out of our window. the reception area is very impressive. we would return if we went back to l.a.">great hotel!! stayed here for 4 nights in early july. found it a bit tricky to find as its located in downtown l.a. but used mapquest which helped. we liked the location as it was handy for all the tourist attractions and at night it is very quiet . the standards at this hotel are very good - the staff are great, they could not be more helpful and the valet parking staff greeted you with welcome back, etc, etc the beds were very comfortable with lovely linens and we had a nice view out of our window. the reception area is very impressive. we would return if we went back to l.a.</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="idx">20</td>
+                            <td class="payload-text" title="the omni rocks! we enjoyed a perfect stay at the omni this past spring. after a not-so-great experience at the westin bonaventure, i can safely say that the omni is my favorite hotel in downtown la!firstly, its location is great -- close to museums, restaurants and the freeway. little tokyo is just a few blocks away, so we were able to do takeout sushi from sushi go 55. (it was absolutely delicious, especially the seared albacore sashimi. the black cod special was sweet, velvety and very yummy as well!) note that la is one of those cities that you must drive, not walk鈥o don鈥??� expect any of the local attractions, such as hollywood, rodeo drive, the beach, etc. to be within walking distance!check-in and service in general was excellent 鈥?probably the best that i鈥???e experienced so far. the staff was courteous, speedy and made me feel like they were willing to handle my special requests. the wait for valet wasn鈥??� too long, and there was always someone to greet us at the door. the preferred guest program is a great bonus, so sign up for that when you have a minute. the perks are great, it鈥??? free, and allows you to stay on top of the omni specials that are going on.the room was great! of course, everything was clean and well-appointed and the room actually felt quite spacious. we had a great view from one of the top floors, and could see various sculptures and plazas of nearby buildings as well as a gorgeous city line, including the intruiging walt disney concert hall. we also happened to be staying there the weekend of the immigration protests, and it was surreal to see what was happening both on television and outside our window. my only wish is that our stay could鈥???e been longer so that we could experience all that the omni has to offer. i can鈥??� wait until our next downtown la stay, and would try any of the other omni locations in a heartbeat!">the omni rocks! we enjoyed a perfect stay at the omni this past spring. after a not-so-great experience at the westin bonaventure, i can safely say that the omni is my favorite hotel in downtown la!firstly, its location is great -- close to museums, restaurants and the freeway. little tokyo is just a few blocks away, so we were able to do takeout sushi from sushi go 55. (it was absolutely delicious, especially the seared albacore sashimi. the black cod special was sweet, velvety and very yummy as well!) note that la is one of those cities that you must drive, not walk鈥o don鈥??� expect any of the local attractions, such as hollywood, rodeo drive, the beach, etc. to be within walking distance!check-in and service in general was excellent 鈥?probably the best that i鈥???e experienced so far. the staff was courteous, speedy and made me feel like they were willing to handle my special requests. the wait for valet wasn鈥??� too long, and there was always someone to greet us at the door. the preferred guest program is a great bonus, so sign up for that when you have a minute. the perks are great, it鈥??? free, and allows you to stay on top of the omni specials that are going on.the room was great! of course, everything was clean and well-appointed and the room actually felt quite spacious. we had a great view from one of the top floors, and could see various sculptures and plazas of nearby buildings as well as a gorgeous city line, including the intruiging walt disney concert hall. we also happened to be staying there the weekend of the immigration protests, and it was surreal to see what was happening both on television and outside our window. my only wish is that our stay could鈥???e been longer so that we could experience all that the omni has to offer. i can鈥??� wait until our next downtown la stay, and would try any of the other omni locations in a heartbeat!</td>
+                            <td class="status status-403">403</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+
+        <!-- ===== FOOTER ===== -->
+        <div class="footer">
+            Generated by <strong>WAF Auto-Test Runner</strong> v1.0.0 &mdash;
+            2026-04-01 13:41:11 &mdash;
+            Thesis: "Tối ưu hóa thư viện WAF ModSecurity trên Nginx bằng quy tắc tổng quát hóa"
+        </div>
+
+    </div>
+
+    <!-- ===== CHART.JS SCRIPTS ===== -->
+    <script>
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+
+        // --- Pie Chart: Blocked vs Bypassed (Malicious only) ---
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Blocked (TP)', 'Bypassed (FN)'],
+                datasets: [{
+                    data: [14777, 372],
+            backgroundColor: ['#22c55e', '#ef4444'],
+            borderColor: ['#16a34a', '#dc2626'],
+            borderWidth: 2,
+            hoverOffset: 8
+        }]
+            },
+            options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Malicious Payload Detection',
+                    font: { size: 16, weight: 'bold' },
+                    padding: 16
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 16, usePointStyle: true, font: { size: 13 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            let pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            return `${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+        });
+
+        // --- Radar Chart: WAF vs AI Model ---
+        new Chart(document.getElementById('radarChart'), {
+            type: 'radar',
+            data: {
+                labels: ['Accuracy', 'Precision', 'Recall', 'F1-Score'],
+                datasets: [
+                    {
+                        label: 'ModSecurity WAF',
+                        data: [97.47, 95.35, 97.54, 96.43],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            borderWidth: 2,
+            pointRadius: 5,
+            pointBackgroundColor: '#3b82f6'
+                    },
+            
+        {
+            label: 'CNN-BiLSTM-Attention',
+                data: [99.2, { { ai_precision } }, { { ai_recall } }, { { ai_f1 } }],
+        borderColor: '#a855f7',
+            backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                borderWidth: 2,
+                    pointRadius: 5,
+                        pointBackgroundColor: '#a855f7'
+                    }
+        
+                ]
+            },
+        options: {
+            responsive: true,
+                scales: {
+                r: {
+                    beginAtZero: false,
+                        min: 80,
+                            max: 100,
+                                ticks: { stepSize: 5, font: { size: 11 } },
+                    grid: { color: '#334155' },
+                    angleLines: { color: '#334155' },
+                    pointLabels: { font: { size: 13, weight: 'bold' } }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                        text: 'Performance Comparison',
+                            font: { size: 16, weight: 'bold' },
+                    padding: 16
+                },
+                legend: {
+                    position: 'bottom',
+                        labels: { padding: 16, usePointStyle: true, font: { size: 13 } }
+                }
+            }
+        }
+        });
+    </script>
+</body>
+
+</html>

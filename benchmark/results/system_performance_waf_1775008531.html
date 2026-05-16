@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Performance Report - ModSecurity WAF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+
+<body class="text-slate-800">
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div>
+                    <h1
+                        class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                        System Performance Report
+                    </h1>
+                    <p class="text-slate-500 mt-2">Target Engine: <strong class="text-slate-700">ModSecurity WAF</strong></p>
+                    <p class="text-slate-500">Dataset Used: <strong class="text-slate-700">xssed-dmzo_nomal.csv</strong>
+                    </p>
+                </div>
+                <div class="text-left md:text-right mt-4 md:mt-0">
+                    <p class="text-sm text-slate-500">Generated: 2026-04-01 08:55:31</p>
+                    <p class="text-sm font-medium text-slate-700">Duration per Concurrency: 60s</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-semibold mb-4 text-center">Throughput (Requests / Second)</h2>
+                <canvas id="rpsChart"></canvas>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-semibold mb-4 text-center">Latency p95 (ms)</h2>
+                <canvas id="latencyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+            <div class="p-6 border-b border-slate-200">
+                <h2 class="text-lg font-semibold">Test Results Details</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-50 text-slate-500">
+                        <tr>
+                            <th class="px-6 py-4 font-medium">Concurrency</th>
+                            <th class="px-6 py-4 font-medium">Throughput (RPS)</th>
+                            <th class="px-6 py-4 font-medium">Avg Latency (ms)</th>
+                            <th class="px-6 py-4 font-medium">p90 Latency (ms)</th>
+                            <th class="px-6 py-4 font-medium">p95 Latency (ms)</th>
+                            <th class="px-6 py-4 font-medium">Avg CPU Usage (%)</th>
+                            <th class="px-6 py-4 font-medium">Max Memory (MB)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-medium text-blue-600">10</td>
+                            <td class="px-6 py-4">6095.92</td>
+                            <td class="px-6 py-4">1.64</td>
+                            <td class="px-6 py-4">2.37</td>
+                            <td class="px-6 py-4 text-rose-500 font-semibold">3.02</td>
+                            <td class="px-6 py-4 text-amber-600">731.47%</td>
+                            <td class="px-6 py-4">1098.9</td>
+                        </tr>
+                        
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-medium text-blue-600">50</td>
+                            <td class="px-6 py-4">6419.63</td>
+                            <td class="px-6 py-4">7.78</td>
+                            <td class="px-6 py-4">9.99</td>
+                            <td class="px-6 py-4 text-rose-500 font-semibold">11.27</td>
+                            <td class="px-6 py-4 text-amber-600">860.79%</td>
+                            <td class="px-6 py-4">1100.2</td>
+                        </tr>
+                        
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-medium text-blue-600">100</td>
+                            <td class="px-6 py-4">6728.07</td>
+                            <td class="px-6 py-4">14.84</td>
+                            <td class="px-6 py-4">16.83</td>
+                            <td class="px-6 py-4 text-rose-500 font-semibold">17.89</td>
+                            <td class="px-6 py-4 text-amber-600">923.58%</td>
+                            <td class="px-6 py-4">1100.7</td>
+                        </tr>
+                        
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-medium text-blue-600">500</td>
+                            <td class="px-6 py-4">5901.48</td>
+                            <td class="px-6 py-4">84.61</td>
+                            <td class="px-6 py-4">96.66</td>
+                            <td class="px-6 py-4 text-rose-500 font-semibold">105.53</td>
+                            <td class="px-6 py-4 text-amber-600">820.77%</td>
+                            <td class="px-6 py-4">1106.2</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const concurrencies = [10, 50, 100, 500];
+        const rpsData = [6095.92, 6419.63, 6728.07, 5901.48];
+        const latencyData = [3.02, 11.27, 17.89, 105.53];
+
+        // RPS Chart
+        new Chart(document.getElementById('rpsChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: concurrencies.map(c => 'Concurrent ' + c),
+                datasets: [{
+                    label: 'Throughput (RPS)',
+                    data: rpsData,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // Latency Chart
+        new Chart(document.getElementById('latencyChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: concurrencies.map(c => 'Concurrent ' + c),
+                datasets: [{
+                    label: 'Latency p95 (ms)',
+                    data: latencyData,
+                    borderColor: '#e11d48',
+                    backgroundColor: 'rgba(225, 29, 72, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    </script>
+</body>
+
+</html>

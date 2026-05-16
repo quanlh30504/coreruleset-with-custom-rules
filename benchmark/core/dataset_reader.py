@@ -60,7 +60,7 @@ class DatasetReader:
 
         # Support multiple column name variants
         PAYLOAD_ALIASES = ["payload", "payloads"]
-        LABEL_ALIASES = ["label", "class"]
+        LABEL_ALIASES = ["label", "Label"]
 
         payload_col = None
         for alias in PAYLOAD_ALIASES:
