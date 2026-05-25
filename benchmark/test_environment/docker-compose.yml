@@ -1,0 +1,145 @@
+services:
+  # =========================================================================
+  # 1. CRS GỐC — Pure OWASP CRS PL4 (no custom rules)
+  # =========================================================================
+  waf-crs:
+    container_name: rq1-waf-crs
+    image: owasp/modsecurity-crs:nginx@sha256:6dd9a8a24682b6910c423451dc93050fd38c810bf367a9b2dfc71f364aa7aa74
+    user: root
+    environment:
+      BACKEND: http://backend-crs:80
+      PORT: "8080"
+      SERVERNAME: rq1-waf-crs
+      MODSEC_RULE_ENGINE: "On"
+      BLOCKING_PARANOIA: 4
+      DETECTION_PARANOIA: 4
+      ANOMALY_INBOUND: 5
+      ANOMALY_OUTBOUND: 5
+      CRS_ENABLE_TEST_MARKER: 1
+      ACCESSLOG: "/var/log/nginx/access.log"
+      ERRORLOG: "/var/log/nginx/error.log"
+      MODSEC_AUDIT_LOG: "/var/log/nginx/modsec_audit.log"
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      LOGLEVEL: "info"
+    # NO custom rules — pure CRS baseline
+    volumes:
+      - ./crs/logs:/var/log/nginx:rw
+    ports:
+      - "8090:8080"
+    depends_on:
+      - backend-crs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rq1-network
+
+  backend-crs:
+    container_name: rq1-backend-crs
+    image: ghcr.io/coreruleset/albedo:0.2.0@sha256:bc9b7e4f83a5268ccd2b4d1d26e926b6324e20ff1d91281c339ad82e55f5bab2
+    command: ["--port", "80"]
+    networks:
+      - rq1-network
+
+  # =========================================================================
+  # 2. RR — CRS + Research Rules (enumeration-based)
+  # =========================================================================
+  waf-rr:
+    container_name: rq1-waf-rr
+    image: owasp/modsecurity-crs:nginx@sha256:6dd9a8a24682b6910c423451dc93050fd38c810bf367a9b2dfc71f364aa7aa74
+    user: root
+    environment:
+      BACKEND: http://backend-rr:80
+      PORT: "8080"
+      SERVERNAME: rq1-waf-rr
+      MODSEC_RULE_ENGINE: "On"
+      BLOCKING_PARANOIA: 4
+      DETECTION_PARANOIA: 4
+      ANOMALY_INBOUND: 5
+      ANOMALY_OUTBOUND: 5
+      CRS_ENABLE_TEST_MARKER: 1
+      ACCESSLOG: "/var/log/nginx/access.log"
+      ERRORLOG: "/var/log/nginx/error.log"
+      MODSEC_AUDIT_LOG: "/var/log/nginx/modsec_audit.log"
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      LOGLEVEL: "info"
+    volumes:
+      # Mount Research Rules (XSS + SQLi enumeration-based)
+      - ../../rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-XSS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-XSS.conf:ro
+      - ../../rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-SQL-INJECTION.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-941-APPLICATION-CUSTOM-ATTACK-SQL-INJECTION.conf:ro
+      - ./rr/logs:/var/log/nginx:rw
+    ports:
+      - "8091:8080"
+    depends_on:
+      - backend-rr
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rq1-network
+
+  backend-rr:
+    container_name: rq1-backend-rr
+    image: ghcr.io/coreruleset/albedo:0.2.0@sha256:bc9b7e4f83a5268ccd2b4d1d26e926b6324e20ff1d91281c339ad82e55f5bab2
+    command: ["--port", "80"]
+    networks:
+      - rq1-network
+
+  # =========================================================================
+  # 3. CGR — CRS + Context-aware Generalized Rules + Tuning Exclusions
+  # =========================================================================
+  waf-cgr:
+    container_name: rq1-waf-cgr
+    image: owasp/modsecurity-crs:nginx@sha256:6dd9a8a24682b6910c423451dc93050fd38c810bf367a9b2dfc71f364aa7aa74
+    user: root
+    environment:
+      BACKEND: http://backend-cgr:80
+      PORT: "8080"
+      SERVERNAME: rq1-waf-cgr
+      MODSEC_RULE_ENGINE: "On"
+      BLOCKING_PARANOIA: 4
+      DETECTION_PARANOIA: 4
+      ANOMALY_INBOUND: 5
+      ANOMALY_OUTBOUND: 5
+      CRS_ENABLE_TEST_MARKER: 1
+      ACCESSLOG: "/var/log/nginx/access.log"
+      ERRORLOG: "/var/log/nginx/error.log"
+      MODSEC_AUDIT_LOG: "/var/log/nginx/modsec_audit.log"
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      LOGLEVEL: "info"
+    volumes:
+      # CGR v2 Rules
+      - ../../rule_dev_v2/rules/REQUEST-941-XSS-GENERALIZED-v2.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-941-XSS-GENERALIZED-v2.conf:ro
+      - ../../rule_dev_v2/rules/REQUEST-942-SQLI-GENERALIZED-v2.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-942-SQLI-GENERALIZED-v2.conf:ro
+      # Tuning Exclusions (disables high-FP CRS rules replaced by CGR)
+      - ../../rule_dev_v2/rules/TUNING-EXCLUSIONS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-TUNING-EXCLUSIONS.conf:ro
+      - ./cgr/logs:/var/log/nginx:rw
+    ports:
+      - "8092:8080"
+    depends_on:
+      - backend-cgr
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rq1-network
+
+  backend-cgr:
+    container_name: rq1-backend-cgr
+    image: ghcr.io/coreruleset/albedo:0.2.0@sha256:bc9b7e4f83a5268ccd2b4d1d26e926b6324e20ff1d91281c339ad82e55f5bab2
+    command: ["--port", "80"]
+    networks:
+      - rq1-network
+
+networks:
+  rq1-network:
+    driver: bridge
